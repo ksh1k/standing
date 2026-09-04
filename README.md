@@ -1,6 +1,6 @@
 # Standing
 
-Local study-group coordination for campus peers. Phase 1 scaffold + Phase 2 negotiation protocol (member evaluate + coordinator search, leakage-safe state).
+Local study-group coordination for campus peers. Phase 1 scaffold + Phase 2 negotiation + Phase 3 group formation (greedy + local search + negotiate gate).
 
 Enrollment data is self-reported or synthetic. Everything is designed to run on localhost only.
 
@@ -38,10 +38,12 @@ standing/
       001_coordinator.sql
       002_coordinator.sql   # negotiation_candidates / negotiation_rounds
     negotiation/            # Phase 2 protocol
+    formation/              # Phase 3 greedy + local search + pipeline
     coordinator/app.py
     member/app.py
   tests/
     fixtures/five_students.py
+    fixtures/formation_pool.py
   static/                   # reserved for later UI
 ```
 
@@ -71,9 +73,19 @@ pytest -v
 
 Phase 2 negotiation is exercised in-process via `NegotiateSession` (see `tests/test_negotiation.py` and `tests/fixtures/five_students.py`). Expected unanimous fixture slot: **78** (Wed 14:00).
 
+Phase 3 formation:
+
+```bash
+source .venv/bin/activate
+pytest -v tests/test_formation.py
+```
+
+Uses greedy pack → local search (seed 42, 200 iters) → real negotiation gate. Soft scoring never sees bitmaps.
+
 ## Phase status
 
 - **Phase 1:** repo, dual SQLite schemas, slot grid, `/healthz` stubs, structural tests
 - **Phase 2:** message types, member `evaluate`, coordinator search (40-round budget), JSONL log, leakage tests, 5-student fixture proof
+- **Phase 3:** group formation (greedy + local search + negotiate-only-CONFIRM), formation tests
 
-**Out of scope still:** group formation UI, production messaging transport, Phase 3+.
+**Out of scope still:** formation UI, production messaging transport, Phase 4+.

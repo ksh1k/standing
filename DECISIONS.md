@@ -135,3 +135,39 @@ Migration `002_coordinator.sql`:
 
 - Repository initialized at `/workspace/standing`
 - No remote push; no `git config` changes by automation
+
+## Phase 3 — Group formation
+
+### Pipeline
+
+1. **Greedy seed** (`standing/formation/greedy.py`): normalize courses; process courses by descending eligible count; pack sizes via `best_pack_sizes` to maximize placement with group sizes in [4, 6]; fill each group by marginal soft score (tie-break `student_id`).
+2. **Local search** (`standing/formation/local_search.py`): hill-climb with swap / reassign / form-from-unplaced moves; accept only strict objective increases.
+3. **Negotiate gate** (`standing/formation/pipeline.py`): for each candidate, run Phase 2 `NegotiateSession` (or injectable stub in unit tests). **Emit only groups that CONFIRM.** Soft scoring never reads availability bitmaps; bitmaps stay in `InProcessMember` / member agents.
+
+### Objective weights (`standing/formation/objective.py`)
+
+Lexicographic-style scalar (each tier dominates lower tiers for realistic pools):
+
+| Priority | Term | Weight | Scoring |
+|----------|------|--------|---------|
+| 1 | Placement | `W_PLACE = 1_000_000` | `×` number of students in some candidate group |
+| 2 | Shared study_style | `W_STYLE = 1_000` | Per group: fraction sharing modal `study_style` (0..1) |
+| 3 | Year diversity | `W_YEAR = 10` | Per group: `#unique years / group size` (0..1) |
+| 4 | Zone overlap | `W_ZONE = 1` | Per group: mean pairwise Jaccard of `preferred_zones` (0..1) |
+
+`partition_score = W_PLACE * n_placed + Σ_groups (W_STYLE·style + W_YEAR·year + W_ZONE·zones)`.
+
+### Local search defaults
+
+| Parameter | Default | Notes |
+|-----------|---------|-------|
+| Random seed | `42` (`DEFAULT_SEED`) | Fixed for reproducibility |
+| Iteration budget | `200` (`DEFAULT_ITERS`) | Fixed; tests may pass a smaller budget |
+
+Moves (same `course_code` only): inter-group member swap; placed↔unplaced swap; add unplaced into a group with room; form a new group from ≥4 unplaced sharing a course.
+
+### Coordinator vs member data
+
+- Formation soft scoring uses `FormationStudent` (mirror of coordinator view: year, courses, preferred_group_size, preferred_zones, study_style) — **no availability**.
+- Negotiation uses member-side `evaluate()` with private bitmaps.
+- Test stubs `always_confirm_stub` / `never_confirm_stub` may replace the negotiator **only** for pure combinatorial unit tests; integration tests use real `NegotiateSession`.
