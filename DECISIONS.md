@@ -92,3 +92,11 @@ Objective: `W_PLACE=1e6` × placed + Σ groups (`W_STYLE=1e3`·style + `W_YEAR=1
 - **Live transcript:** `POST /api/demo/negotiate` runs five-student fixture; appends PROPOSE/RESPOND/CONFIRM to `data/negotiation_log.jsonl` (no bitmaps; no `student_id` on RESPOND).
 - **ICS:** SUMMARY, LOCATION (public zone), DTSTART/DTEND (90 min), optional UID. Slot→time: week Monday `2026-09-07` as UTC demo (`calendar_ics.py`).
 - **Intake / my groups:** member `/api/intake`, `/api/groups?student_id=` via `local_sessions` (time+place only). Bind `127.0.0.1`; member CORS for `:8000`.
+
+## Phase 7 — Demo + runbook (FINAL)
+
+- **DEMO.md:** ~3-minute click-by-click script (start → dashboard → 5-student negotiate → transcript privacy → optional intake/.ics).
+- **README:** single documented commands for start (`python -m standing.demo_server`), seed (`python seed_synthetic.py`), and tests (`pytest -v`); hard constraints kept verbatim; links to DEMO / DECISIONS / SIMULATION_REPORT.
+- **Lifespan:** replaced deprecated FastAPI `@app.on_event("startup")` with `lifespan` context managers on coordinator + member apps (no behavior change).
+- **Clean-clone check:** fresh venv + `pip install -r requirements.txt` → pytest / seed / `/healthz` must work without manual intervention.
+- App versions bumped to `0.7.0`. No new dependencies.

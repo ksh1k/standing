@@ -1,6 +1,6 @@
 # Standing
 
-Local study-group coordination for campus peers (Phases 1–6). Enrollment is self-reported or synthetic; everything binds to localhost.
+Local study-group coordination for campus peers. Enrollment is self-reported or synthetic; everything binds to localhost.
 
 ## Hard constraints
 
@@ -11,6 +11,15 @@ Local study-group coordination for campus peers (Phases 1–6). Enrollment is se
 5. Group meetings (size 4–6) in public places only — never 1:1 first meetings or residential locations.
 6. Localhost only — no public deploy, email, or external posts without asking.
 
+## Architecture (brief)
+
+- **Member agents** hold availability bitmaps, display names, ToD prefs, and private attendance. They answer PROPOSE with RESPOND (accept / reject / accept_if_shifted) — no bitmap leaves the member.
+- **Coordinator** forms groups (greedy + local search), runs negotiation (PROPOSE / RESPOND / CONFIRM), stores aggregates + scheduled slot/zone only. Dual SQLite DBs keep private fields off the coordinator.
+- **UI** (`static/`): intake, my groups, coordinator dashboard with live transcript + demo negotiate + `.ics` download.
+- **Synthetic path:** `seed_synthetic.py` (300×12) → `run_simulation.py` → `SIMULATION_REPORT.md`.
+
+Details: [DECISIONS.md](DECISIONS.md) · Demo script: [DEMO.md](DEMO.md) · Sim results: [SIMULATION_REPORT.md](SIMULATION_REPORT.md)
+
 ## Stack
 
 Python 3.11+, SQLite (stdlib), FastAPI + uvicorn, pytest, icalendar. No React/Docker/ORM/cloud.
@@ -18,56 +27,66 @@ Python 3.11+, SQLite (stdlib), FastAPI + uvicorn, pytest, icalendar. No React/Do
 ## Layout
 
 ```
-standing/          # package: constants, models, db, migrations, negotiation, formation, persistence, calendar_ics
-static/            # Phase 6 HTML/JS/CSS (no build)
-seed_synthetic.py  # Phase 4: reproducible 300×12 population
-run_simulation.py  # Phase 4: form + negotiate → report
-data/              # synthetic JSON + negotiation_log.jsonl + local SQLite
-tests/             # fixtures + constraint / negotiation / formation / synthetic / phase6 tests
+standing/            # package: constants, models, db, negotiation, formation, persistence, calendar_ics
+static/              # plain HTML/JS/CSS (no build)
+seed_synthetic.py    # reproducible 300 students × 12 courses
+run_simulation.py    # form + negotiate → SIMULATION_REPORT.md
+data/                # synthetic JSON, negotiation_log.jsonl, local SQLite (gitignored artifacts)
+tests/               # constraint / negotiation / formation / synthetic / persistence / UI tests
+DEMO.md              # 3-minute click-by-click demo
+DECISIONS.md
 SIMULATION_REPORT.md
 ```
 
-## Setup
+## Fresh clone — setup
 
 ```bash
-cd /workspace/standing && python3 -m venv .venv && source .venv/bin/activate
+cd standing
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Run local UI (Phase 6 demo)
+## One command each (venv active, repo root)
 
-Two terminals, repo root, `.venv` active. Bind localhost only.
+**Start the system** (coordinator UI + transcript + demo negotiate on localhost:8000):
 
 ```bash
-# Terminal A — coordinator + static UI + transcript / demo negotiate / .ics
-cd /workspace/standing && source .venv/bin/activate
 python -m standing.demo_server
-# equivalent:
-# uvicorn standing.coordinator.app:app --host 127.0.0.1 --port 8000
+```
 
-# Terminal B — member agent (intake + my groups + notifications)
-cd /workspace/standing && source .venv/bin/activate
+Then open **http://127.0.0.1:8000/** → Dashboard → **Run 5-student demo negotiate**.  
+Optional member agent (intake / my groups):
+
+```bash
 uvicorn standing.member.app:app --host 127.0.0.1 --port 8001
 ```
 
-Open **http://127.0.0.1:8000/** — Intake, My groups, Coordinator dashboard.
-On the dashboard click **Run 5-student demo negotiate**; transcript polls `/api/transcript` every 1s.
-
-
-## Tests
+**Seed 300 synthetic students:**
 
 ```bash
-source .venv/bin/activate && pytest -v
+python seed_synthetic.py
 ```
 
-Phase 2 fixture slot: **78** (Wed 14:00). Phase 3: greedy → local search (seed 42, 200 iters) → negotiate gate.
+Writes `data/synthetic_students.json` (reproducible seed `20260903`).
 
-## Phase 4–5
+**Run the test suite:**
 
 ```bash
-python seed_synthetic.py && python run_simulation.py   # or --subset 24
-pytest -v tests/test_persistence.py                    # time-travel; local notifications only
+pytest -v
 ```
+
+**Optional simulation** (after seed):
+
+```bash
+python run_simulation.py            # full population
+python run_simulation.py --subset 24
+```
+
+## Demo (~3 minutes)
+
+See **[DEMO.md](DEMO.md)** for exact click-by-click steps and timing cues.
+
 ## Phase status
 
 - **1:** dual SQLite, slot grid, `/healthz`, structural tests
@@ -76,3 +95,4 @@ pytest -v tests/test_persistence.py                    # time-travel; local noti
 - **4:** synthetic 300×12 population + formation/negotiation simulation report
 - **5:** persistence — reminders, dormancy, drift renegotiation, exam-season second session, merge flags
 - **6:** plain HTML UI (intake / my groups / live transcript), `.ics`, demo negotiate endpoint
+- **7:** DEMO.md, README runbook, clean-clone verification (FINAL)

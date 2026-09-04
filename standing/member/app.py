@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -20,13 +21,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = Path(os.environ.get("STANDING_DATA_DIR", str(REPO_ROOT / "data")))
 MEMBER_DB = Path(os.environ.get("STANDING_MEMBER_DB", str(DATA_DIR / "member.db")))
 
-app = FastAPI(title="Standing Member Agent", version="0.6.0")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://127.0.0.1:8000", "http://localhost:8000"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 _LOCAL_AVAILABILITY: str | None = None
 
 
@@ -35,9 +29,19 @@ def _ensure_db() -> None:
     apply_member_migrations(MEMBER_DB)
 
 
-@app.on_event("startup")
-def _startup() -> None:
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
     _ensure_db()
+    yield
+
+
+app = FastAPI(title="Standing Member Agent", version="0.7.0", lifespan=_lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:8000", "http://localhost:8000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/healthz")

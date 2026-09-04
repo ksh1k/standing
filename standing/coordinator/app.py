@@ -7,6 +7,7 @@ import os
 import threading
 import uuid
 from datetime import datetime, timezone
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +28,6 @@ COORD_DB = Path(os.environ.get("STANDING_COORD_DB", str(DATA_DIR / "coordinator.
 MEMBER_DB = Path(os.environ.get("STANDING_MEMBER_DB", str(DATA_DIR / "member.db")))
 LOG_PATH = Path(os.environ.get("STANDING_NEGOTIATION_LOG", str(DATA_DIR / "negotiation_log.jsonl")))
 
-app = FastAPI(title="Standing Coordinator", version="0.6.0")
 _demo_lock = threading.Lock()
 _demo_status: dict[str, Any] = {"running": False, "last": None}
 
@@ -42,9 +42,13 @@ def _ensure_member_db() -> None:
     apply_member_migrations(MEMBER_DB)
 
 
-@app.on_event("startup")
-def _startup() -> None:
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
     _ensure_coord_db()
+    yield
+
+
+app = FastAPI(title="Standing Coordinator", version="0.7.0", lifespan=_lifespan)
 
 
 @app.get("/healthz")
