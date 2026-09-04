@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from standing.db import (
-    COORDINATOR_MIGRATION,
+    COORDINATOR_MIGRATIONS,
     MEMBER_MIGRATION,
     apply_coordinator_migrations,
     apply_member_migrations,
@@ -54,7 +54,7 @@ def test_constraint2_no_residence_columns_in_coordinator_schema(tmp_path: Path) 
 
 
 def test_constraint2_no_residence_in_sql_source() -> None:
-    for path in (MEMBER_MIGRATION, COORDINATOR_MIGRATION):
+    for path in (MEMBER_MIGRATION, *COORDINATOR_MIGRATIONS):
         text = path.read_text(encoding="utf-8")
         # Ignore SQL comment lines when scanning for forbidden identifiers as columns
         code_lines = [

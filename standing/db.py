@@ -12,6 +12,13 @@ MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 MEMBER_MIGRATION = MIGRATIONS_DIR / "001_member.sql"
 COORDINATOR_MIGRATION = MIGRATIONS_DIR / "001_coordinator.sql"
+COORDINATOR_MIGRATION_002 = MIGRATIONS_DIR / "002_coordinator.sql"
+
+# Ordered coordinator migrations (Phase 1 + Phase 2).
+COORDINATOR_MIGRATIONS: tuple[Path, ...] = (
+    COORDINATOR_MIGRATION,
+    COORDINATOR_MIGRATION_002,
+)
 
 
 def connect(db_path: str | Path) -> sqlite3.Connection:
@@ -35,10 +42,10 @@ def apply_member_migrations(db_path: str | Path) -> None:
 
 
 def apply_coordinator_migrations(db_path: str | Path) -> None:
-    """Create / migrate the coordinator-agent database."""
-    sql = _read_sql(COORDINATOR_MIGRATION)
+    """Create / migrate the coordinator-agent database (all numbered migrations)."""
     with connect(db_path) as conn:
-        conn.executescript(sql)
+        for path in COORDINATOR_MIGRATIONS:
+            conn.executescript(_read_sql(path))
         conn.commit()
 
 

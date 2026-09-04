@@ -1,6 +1,6 @@
 # Standing
 
-Local study-group coordination for campus peers. Phase 1: repository scaffold, data model, SQL migrations, empty FastAPI stubs, and structural tests.
+Local study-group coordination for campus peers. Phase 1 scaffold + Phase 2 negotiation protocol (member evaluate + coordinator search, leakage-safe state).
 
 Enrollment data is self-reported or synthetic. Everything is designed to run on localhost only.
 
@@ -30,17 +30,19 @@ standing/
   DECISIONS.md
   requirements.txt
   standing/
-    __init__.py
-    constants.py      # slot grid (224), zones, enums
-    models.py         # dataclasses / helpers (no I/O)
-    db.py             # migration apply helpers
+    constants.py
+    models.py
+    db.py
     migrations/
       001_member.sql
       001_coordinator.sql
-    coordinator/app.py   # /healthz stub
-    member/app.py        # /healthz stub
-  static/             # reserved for Phase 6 UI
+      002_coordinator.sql   # negotiation_candidates / negotiation_rounds
+    negotiation/            # Phase 2 protocol
+    coordinator/app.py
+    member/app.py
   tests/
+    fixtures/five_students.py
+  static/                   # reserved for later UI
 ```
 
 ## Setup
@@ -67,12 +69,11 @@ source .venv/bin/activate
 pytest -v
 ```
 
-## Phase 1 scope
+Phase 2 negotiation is exercised in-process via `NegotiateSession` (see `tests/test_negotiation.py` and `tests/fixtures/five_students.py`). Expected unanimous fixture slot: **78** (Wed 14:00).
 
-- Repo, dependencies, data model, SQL migrations
-- Empty FastAPI `/healthz` stubs
-- Minimal pytest suite that passes
-- README (these constraints) + DECISIONS.md
-- One git commit
+## Phase status
 
-**Out of scope for Phase 1:** negotiation, group formation, UI, persistence application logic beyond migrations.
+- **Phase 1:** repo, dual SQLite schemas, slot grid, `/healthz` stubs, structural tests
+- **Phase 2:** message types, member `evaluate`, coordinator search (40-round budget), JSONL log, leakage tests, 5-student fixture proof
+
+**Out of scope still:** group formation UI, production messaging transport, Phase 3+.

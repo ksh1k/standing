@@ -35,6 +35,8 @@ def test_coordinator_migrations_apply(tmp_path: Path) -> None:
     assert "students" in tables
     assert "groups" in tables
     assert "sessions" in tables
+    assert "negotiation_candidates" in tables
+    assert "negotiation_rounds" in tables
 
 
 def test_coordinator_app_imports() -> None:
