@@ -67,6 +67,20 @@ Objective: `W_PLACE=1e6` × placed + Σ groups (`W_STYLE=1e3`·style + `W_YEAR=1
 - Bitmaps only on member side during sim negotiation; no residence fields
 - Artifacts: `data/synthetic_students.json`, `data/simulation_stats.json`, `SIMULATION_REPORT.md`
 
+
+## Phase 5 — Persistence behaviors
+
+- **Line budget:** raised from ~3000 to **~4500** (user-approved 2026-09-03).
+- **Clock:** injectible `FrozenClock` / explicit `now: datetime` on every check — never real `sleep` (time-travel tests).
+- **Notification model:** member DB `notifications` table only (`reminder` | `dormancy_checkin`); local store — no email/external. Deduped by `(student_id, kind, session_id)`. Member also keeps `local_sessions` for schedule+place.
+- **Weekly reminder:** fires when `session_dt - 24h <= now < session_dt` (not earlier).
+- **Dormancy:** trailing **3** consecutive misses (ordered by `local_sessions.scheduled_datetime`) → private `dormancy_checkin` to that student only. No group announce; no removal.
+- **Active member:** listed in the group and **not** dormant (fewer than 3 trailing consecutive misses). Used by membership repair.
+- **Aggregates:** coordinator `session_aggregates(session_id, attended_count, member_total)` only — no per-student attended flags on coordinator. Individual attendance stays in member `attendance`.
+- **Drift:** if aggregate ratio `< 0.5` for **3 consecutive regular** sessions → reopen Phase 2 `NegotiateSession` with member-held bitmaps; record `drift_events`; on CONFIRM update `groups.scheduled_slot`.
+- **Exam season:** manual `exam_dates(course_code, exam_date)`; window `[exam-14d, exam)`; add one `exam_season` second session (+3 days from primary); delete those sessions after window.
+- **Repair:** if active members `< 4`, insert/update `merge_flags` for same-course merge (**flag only** — no merger UI).
+
 ## Dependencies / git
 
 - Only FastAPI, uvicorn, pytest, icalendar (+ transitive); SQLite via stdlib; no ORM/Docker/React/cloud

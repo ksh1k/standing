@@ -10,15 +10,20 @@ from pathlib import Path
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
-MEMBER_MIGRATION = MIGRATIONS_DIR / "001_member.sql"
-COORDINATOR_MIGRATION = MIGRATIONS_DIR / "001_coordinator.sql"
-COORDINATOR_MIGRATION_002 = MIGRATIONS_DIR / "002_coordinator.sql"
-
-# Ordered coordinator migrations (Phase 1 + Phase 2).
-COORDINATOR_MIGRATIONS: tuple[Path, ...] = (
-    COORDINATOR_MIGRATION,
-    COORDINATOR_MIGRATION_002,
+MEMBER_MIGRATIONS: tuple[Path, ...] = (
+    MIGRATIONS_DIR / "001_member.sql",
+    MIGRATIONS_DIR / "003_member.sql",
 )
+COORDINATOR_MIGRATIONS: tuple[Path, ...] = (
+    MIGRATIONS_DIR / "001_coordinator.sql",
+    MIGRATIONS_DIR / "002_coordinator.sql",
+    MIGRATIONS_DIR / "003_coordinator.sql",
+)
+
+# Back-compat aliases
+MEMBER_MIGRATION = MEMBER_MIGRATIONS[0]
+COORDINATOR_MIGRATION = COORDINATOR_MIGRATIONS[0]
+COORDINATOR_MIGRATION_002 = COORDINATOR_MIGRATIONS[1]
 
 
 def connect(db_path: str | Path) -> sqlite3.Connection:
@@ -35,9 +40,9 @@ def _read_sql(path: Path) -> str:
 
 def apply_member_migrations(db_path: str | Path) -> None:
     """Create / migrate the member-agent database."""
-    sql = _read_sql(MEMBER_MIGRATION)
     with connect(db_path) as conn:
-        conn.executescript(sql)
+        for path in MEMBER_MIGRATIONS:
+            conn.executescript(_read_sql(path))
         conn.commit()
 
 

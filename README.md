@@ -1,6 +1,6 @@
 # Standing
 
-Local study-group coordination for campus peers (Phases 1–4). Enrollment is self-reported or synthetic; everything binds to localhost.
+Local study-group coordination for campus peers (Phases 1–5). Enrollment is self-reported or synthetic; everything binds to localhost.
 
 ## Hard constraints
 
@@ -18,7 +18,7 @@ Python 3.11+, SQLite (stdlib), FastAPI + uvicorn, pytest, icalendar. No React/Do
 ## Layout
 
 ```
-standing/          # package: constants, models, db, migrations, negotiation, formation
+standing/          # package: constants, models, db, migrations, negotiation, formation, persistence
 seed_synthetic.py  # Phase 4: reproducible 300×12 population
 run_simulation.py  # Phase 4: form + negotiate → report
 data/              # synthetic_students.json, simulation_stats.json
@@ -60,9 +60,21 @@ python run_simulation.py --subset 24      # fast smoke subset
 
 Bitmaps stay member-side; formation soft scoring never sees them.
 
+
+## Phase 5 — persistence tests
+
+```bash
+source .venv/bin/activate
+pytest -v tests/test_persistence.py
+# or full suite:
+pytest -v
+```
+
+Time-travel via explicit `now` / `FrozenClock` (no real sleep). Notifications are local SQLite only.
 ## Phase status
 
 - **1:** dual SQLite, slot grid, `/healthz`, structural tests
 - **2:** propose/respond/confirm, member evaluate, 40-round search, leakage tests
 - **3:** greedy + local search + CONFIRM-only emit
 - **4:** synthetic 300×12 population + formation/negotiation simulation report
+- **5:** persistence — reminders, dormancy, drift renegotiation, exam-season second session, merge flags

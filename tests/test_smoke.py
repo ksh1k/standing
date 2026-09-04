@@ -23,6 +23,8 @@ def test_member_migrations_apply(tmp_path: Path) -> None:
     conn.close()
     assert "student_profile" in tables
     assert "attendance" in tables
+    assert "notifications" in tables
+    assert "local_sessions" in tables
 
 
 def test_coordinator_migrations_apply(tmp_path: Path) -> None:
@@ -37,6 +39,8 @@ def test_coordinator_migrations_apply(tmp_path: Path) -> None:
     assert "sessions" in tables
     assert "negotiation_candidates" in tables
     assert "negotiation_rounds" in tables
+    assert "session_aggregates" in tables
+    assert "merge_flags" in tables
 
 
 def test_coordinator_app_imports() -> None:
