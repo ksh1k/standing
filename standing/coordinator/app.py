@@ -155,12 +155,26 @@ def _persist_confirmed(
 
 
 def _run_demo_negotiate() -> dict[str, Any]:
-    from tests.fixtures.five_students import EXPECTED_UNANIMOUS_SLOT, STUDENT_IDS, build_five_members
+    import random
+
+    from standing.constants import TimeOfDay, is_legal_meeting_start
+    from standing.negotiation.search import all_legal_starts, time_of_day_for_slot
+    from tests.fixtures.five_students import STUDENT_IDS, build_five_members
+
+    # Random shared window each demo run (prefer weekday afternoon for a realistic look).
+    legal = [s for s in all_legal_starts() if is_legal_meeting_start(s)]
+    afternoon = [
+        s
+        for s in legal
+        if time_of_day_for_slot(s) is TimeOfDay.AFTERNOON and (s // 32) < 5
+    ]
+    pool = afternoon or legal
+    target_slot = random.choice(pool)
 
     _ensure_coord_db()
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     LOG_PATH.write_text("", encoding="utf-8")
-    members = build_five_members()
+    members = build_five_members(unanimous_slot=target_slot)
     group_id = f"demo-{uuid.uuid4().hex[:8]}"
     zone = CampusZone.MAIN_LIBRARY.value
     result = NegotiateSession(
@@ -182,7 +196,7 @@ def _run_demo_negotiate() -> dict[str, Any]:
     return {
         "status": result.status,
         "start_slot": result.start_slot,
-        "expected_slot": EXPECTED_UNANIMOUS_SLOT,
+        "expected_slot": target_slot,
         "accept_count": result.accept_count,
         "rounds": result.rounds,
         "negotiation_id": result.negotiation_id,

@@ -85,14 +85,16 @@ def test_api_groups_transcript_demo_ics(coord_env) -> None:
     assert coord_env.api_transcript()["total"] == 0
     assert coord_env.api_groups()["groups"] == []
     payload = coord_env.api_demo_negotiate(background=False)
-    assert payload["status"] == "confirmed" and payload["start_slot"] == 78
+    assert payload["status"] == "confirmed"
+    assert payload["start_slot"] == payload["expected_slot"]
+    assert payload["start_slot"] is not None
     types = {ln.get("type") for ln in coord_env.api_transcript()["lines"]}
     assert {"PROPOSE", "RESPOND", "CONFIRM"} <= types
     for ln in coord_env.api_transcript()["lines"]:
         if ln.get("type") == "RESPOND":
             assert "student_id" not in ln
     g = coord_env.api_groups()["groups"][0]
-    assert g["scheduled_slot"] == 78 and g["zone"] == "main_library" and "member_ids" not in g
+    assert g["scheduled_slot"] == payload["start_slot"] and g["zone"] == "main_library" and "member_ids" not in g
     ics = coord_env.api_ics(g["group_id"])
     assert ics.media_type == "text/calendar" and b"LOCATION:main_library" in ics.body
     assert len(coord_env.api_groups(student_id="s0")["groups"]) == 1

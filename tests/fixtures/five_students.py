@@ -1,7 +1,8 @@
-"""5-student fixture: unique unanimous slot EXPECTED_UNANIMOUS_SLOT=78 (Wed 14:00).
+"""5-student fixture with a unique unanimous slot (default Wed 14:00 = 78).
 
-All five free only on [78,79,80]. Afternoon decoys before 78 free for 4/5 so search
-must walk them (not first-pick). High afternoon ToD weight prefers those candidates.
+Tests use EXPECTED_UNANIMOUS_SLOT=78. Demo can pass a random legal start.
+All five free only on [target, target+1, target+2]. Afternoon decoys before
+the target (when available) are free for 4/5 so search must walk them.
 """
 
 from __future__ import annotations
@@ -38,23 +39,37 @@ def _windows_overlap(a: int, b: int) -> bool:
     )
 
 
-def build_five_student_bitmaps() -> dict[str, str]:
+def build_five_student_bitmaps(unanimous_slot: int | None = None) -> dict[str, str]:
+    target = EXPECTED_UNANIMOUS_SLOT if unanimous_slot is None else int(unanimous_slot)
+    if not is_legal_meeting_start(target):
+        raise ValueError(f"not a legal start: {target}")
+
     bits_map = {sid: _empty_busy() for sid in STUDENT_IDS}
     for sid in STUDENT_IDS:
-        _free_window(bits_map[sid], EXPECTED_UNANIMOUS_SLOT)
+        _free_window(bits_map[sid], target)
 
+    # Prefer afternoon decoys before target; fall back to any non-overlapping legal starts.
     raw = [
         s
         for s in all_legal_starts()
         if time_of_day_for_slot(s) is TimeOfDay.AFTERNOON
-        and s < EXPECTED_UNANIMOUS_SLOT
-        and not _windows_overlap(s, EXPECTED_UNANIMOUS_SLOT)
+        and s < target
+        and not _windows_overlap(s, target)
     ]
+    if len(raw) < 3:
+        raw = [
+            s
+            for s in all_legal_starts()
+            if s != target and not _windows_overlap(s, target)
+        ]
+
     decoys: list[int] = []
     for s in raw:
         if any(_windows_overlap(s, d) for d in decoys):
             continue
         decoys.append(s)
+        if len(decoys) >= 12:
+            break
 
     for i, start in enumerate(decoys):
         busy_member = STUDENT_IDS[i % len(STUDENT_IDS)]
@@ -65,17 +80,17 @@ def build_five_student_bitmaps() -> dict[str, str]:
     bitmaps = {sid: "".join(bits) for sid, bits in bits_map.items()}
     for start in all_legal_starts():
         n_free = sum(1 for sid in STUDENT_IDS if window_free(bitmaps[sid], start))
-        if start == EXPECTED_UNANIMOUS_SLOT:
+        if start == target:
             assert n_free == 5, (start, n_free)
         else:
             assert n_free < 5, (start, n_free)
     return bitmaps
 
 
-def build_five_members():
+def build_five_members(unanimous_slot: int | None = None):
     from standing.negotiation.coordinator_negotiate import InProcessMember
 
-    bitmaps = build_five_student_bitmaps()
+    bitmaps = build_five_student_bitmaps(unanimous_slot=unanimous_slot)
     return [
         InProcessMember(student_id=sid, _availability=bitmaps[sid], tod=GROUP_TOD)
         for sid in STUDENT_IDS
