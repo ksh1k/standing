@@ -1,4 +1,4 @@
-const COORD = "", MEMBER = "http://127.0.0.1:8001", POLL_MS = 1000;
+const COORD = "", MEMBER = "/member", POLL_MS = 1000;
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const SLOTS_PER_DAY = 32, GRID_START_HOUR = 7, SLOT_MINUTES = 30;
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

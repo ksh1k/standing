@@ -225,5 +225,10 @@ def api_demo_status() -> dict[str, Any]:
         return {"running": _demo_status["running"], "last": _demo_status["last"]}
 
 
+# Same-origin member API for public tunnel / single-URL demos
+from standing.member.app import app as member_app  # noqa: E402
+
+app.mount("/member", member_app)
+
 if STATIC_DIR.is_dir():
     app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
