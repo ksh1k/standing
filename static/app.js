@@ -1,6 +1,8 @@
 const COORD = "", MEMBER = "http://127.0.0.1:8001", POLL_MS = 1000;
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const SLOTS_PER_DAY = 32, GRID_START_HOUR = 7;
+const SLOTS_PER_DAY = 32, GRID_START_HOUR = 7, SLOT_MINUTES = 30;
+const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function qs(id) { return document.getElementById(id); }
 function esc(s) {
@@ -23,35 +25,50 @@ async function jpost(u, b) {
   return r.json();
 }
 
+/** Mon–Sun, 07:00–23:00, 30-min slots, 32/day → e.g. "Wed 14:00". */
 function slotLabel(index) {
   const i = Number(index);
   if (!Number.isFinite(i) || i < 0 || i >= 224) return "slot " + index;
   const day = Math.floor(i / SLOTS_PER_DAY);
-  const slot = i % SLOTS_PER_DAY;
-  const mins = (GRID_START_HOUR * 60) + slot * 30;
-  const h24 = Math.floor(mins / 60), m = mins % 60;
-  const am = h24 < 12;
-  let h12 = h24 % 12; if (h12 === 0) h12 = 12;
-  const mm = m === 0 ? "00" : String(m).padStart(2, "0");
-  return DAYS[day] + " " + h12 + ":" + mm + (am ? " AM" : " PM");
+  const sid = i % SLOTS_PER_DAY;
+  const mins = GRID_START_HOUR * 60 + sid * SLOT_MINUTES;
+  const hh = Math.floor(mins / 60), mm = mins % 60;
+  return DAYS[day] + " " + String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
 }
 
+/** ISO → "Wed Sep 9, 2:00 PM" (browser-local). */
 function formatWhen(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return esc(iso);
-  return esc(d.toLocaleString(undefined, {
-    weekday: "short", month: "short", day: "numeric",
-    hour: "numeric", minute: "2-digit",
-  }));
+  let h = d.getHours(), m = d.getMinutes(), ap = h >= 12 ? "PM" : "AM";
+  h = h % 12; if (h === 0) h = 12;
+  return esc(
+    WEEKDAY[d.getDay()] + " " + MONTHS[d.getMonth()] + " " + d.getDate() +
+    ", " + h + ":" + String(m).padStart(2, "0") + " " + ap
+  );
 }
 
 function memberDownHint(err) {
   const msg = String(err && err.message || err || "");
-  if (/Failed to fetch|NetworkError|load failed/i.test(msg)) {
-    return "Member agent looks offline. Start it on port 8001, then try again.";
+  if (/Failed to fetch|NetworkError|load failed|Network request failed|ECONNREFUSED/i.test(msg) ||
+      (err && err.name === "TypeError")) {
+    return "Member API must be on :8001. Start the member server and try again.";
   }
   return msg;
+}
+
+function setRunButtonDisabled(disabled) {
+  const btn = qs("run_demo_btn") ||
+    document.querySelector("button.primary-cta, button[onclick*=\"runDemoNegotiate\"]");
+  if (btn) btn.disabled = !!disabled;
+}
+
+function updatePollBtn() {
+  const btn = qs("poll_btn");
+  if (!btn) return;
+  btn.textContent = "Resume polling";
+  btn.hidden = !!pollTimer;
 }
 
 async function submitIntake(ev) {
@@ -76,7 +93,7 @@ async function submitIntake(ev) {
     const res = await jpost(MEMBER + "/api/intake", body);
     st.className = "status-ok";
     st.innerHTML = "Saved profile for <strong>" + esc(res.student_id) +
-      "</strong>. <a href=\"/groups.html\">View my groups →</a>";
+      "</strong>. <a class=\"btn\" href=\"/groups.html\">Open My groups →</a>";
   } catch (e) {
     st.className = "status-err";
     st.textContent = memberDownHint(e);
@@ -84,8 +101,9 @@ async function submitIntake(ev) {
 }
 
 async function loadMyGroups() {
-  const sid = qs("student_id").value.trim(), box = qs("groups_list");
+  const sidEl = qs("student_id"), box = qs("groups_list");
   if (!box) return;
+  const sid = sidEl ? sidEl.value.trim() : "";
   if (!sid) {
     box.innerHTML = "<div class=\"empty\"><strong>Enter a student ID</strong><p>Then load your sessions.</p></div>";
     return;
@@ -97,7 +115,7 @@ async function loadMyGroups() {
       ? data.groups.map(g =>
           "<div class=\"card group-card\"><strong>" + esc(g.group_id) + "</strong><ul>" +
           g.sessions.map(s =>
-            "<li>" + formatWhen(s.scheduled_datetime) + " · " + esc(s.location) + "</li>"
+            "<li>" + formatWhen(s.scheduled_datetime) + " @ " + esc(s.location) + "</li>"
           ).join("") +
           "</ul></div>"
         ).join("")
@@ -138,21 +156,20 @@ function renderLine(line) {
   const t = line.type || "?";
   const label = slotLabel(line.start_slot);
   let d;
-  if (t === "PROPOSE") d = "Proposed " + label + " <span class=\"muted\">(slot " + esc(line.start_slot) + ")</span>";
-  else if (t === "CONFIRM") d = "Confirmed " + label + " <span class=\"muted\">(slot " + esc(line.start_slot) + ")</span>";
-  else if (t === "RESPOND") {
+  if (t === "PROPOSE") {
+    d = "Proposed " + esc(label) + " <span class=\"muted\">(slot " + esc(line.start_slot) + ")</span>";
+  } else if (t === "CONFIRM") {
+    d = "Confirmed " + esc(label) + " <span class=\"muted\">(slot " + esc(line.start_slot) + ")</span>";
+  } else if (t === "RESPOND") {
     const v = line.verdict || {};
     const kind = v.kind || JSON.stringify(v);
-    d = label + " → " + esc(kind) +
+    d = "Responded " + esc(label) + " → " + esc(kind) +
       (v.delta != null ? " (shift " + esc(v.delta) + ")" : "") +
       " <span class=\"muted\">(slot " + esc(line.start_slot) + ")</span>";
-  } else d = esc(JSON.stringify(line));
+  } else {
+    d = esc(JSON.stringify(line));
+  }
   return "<div class=\"msg " + esc(t) + "\"><strong>" + esc(t) + "</strong> " + d + "</div>";
-}
-
-function setRunButtonDisabled(disabled) {
-  const btn = document.querySelector("button.primary-cta, button[onclick*=\"runDemoNegotiate\"]");
-  if (btn) btn.disabled = !!disabled;
 }
 
 function ensureTranscriptPlaceholder() {
@@ -161,7 +178,7 @@ function ensureTranscriptPlaceholder() {
   if (!box.dataset.ready) {
     box.dataset.ready = "1";
     if (!box.innerHTML.trim()) {
-      box.innerHTML = "<div class=\"empty transcript-empty\"><strong>Negotiation will appear here</strong>" +
+      box.innerHTML = "<div class=\"empty transcript-empty\"><strong>Negotiation will appear here…</strong>" +
         "<p>Click <em>Run 5-student demo</em> to watch PROPOSE / RESPOND / CONFIRM live.</p></div>";
     }
   }
@@ -186,24 +203,24 @@ async function pollTranscript() {
       : (ds.last
         ? ("Last: " + ds.last.status + " · " + slotLabel(ds.last.start_slot) + " · " + ds.last.rounds + " rounds")
         : "Idle");
-    st.className = ds.running ? "pill warn" : (ds.last ? "pill ok" : "pill");
+    st.className = ds.running ? "pill warn" : (ds.last ? "pill ok" : "pill muted");
     setRunButtonDisabled(!!ds.running);
-    if (!ds.running) loadCoordGroups();
   } catch (e) { /* keep UI quiet while polling */ }
 }
 
 function startPolling() {
   ensureTranscriptPlaceholder();
-  if (pollTimer) return;
+  if (pollTimer) { updatePollBtn(); return; }
   pollTranscript();
   pollTimer = setInterval(pollTranscript, POLL_MS);
+  updatePollBtn();
 }
 
 async function runDemoNegotiate() {
   lineOffset = 0;
   const box = qs("transcript");
   if (box) {
-    box.innerHTML = "<p class=\"muted\">Starting negotiation…</p>";
+    box.innerHTML = "";
     box.dataset.ready = "1";
   }
   setRunButtonDisabled(true);
@@ -218,8 +235,12 @@ async function runDemoNegotiate() {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  if (qs("groups_list") && qs("student_id")) loadMyGroups();
-  if (qs("transcript")) ensureTranscriptPlaceholder();
+  const sid = qs("student_id");
+  if (qs("groups_list") && sid && sid.value.trim()) loadMyGroups();
+  if (qs("transcript")) {
+    ensureTranscriptPlaceholder();
+    updatePollBtn();
+  }
 });
 
 window.StandingUI = {

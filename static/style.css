@@ -347,25 +347,23 @@ code {
   margin-top: 0.55rem;
 }
 
-#transcript:empty::before,
-#transcript .empty {
-  display: block;
-}
-
-#transcript:empty {
-  min-height: 9rem;
-  display: flex;
+#transcript .transcript-empty {
+  margin: 0;
+  border: none;
+  background: transparent;
   align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  font-size: 0.9rem;
-  border-style: dashed;
+  text-align: center;
+  width: 100%;
 }
 
-#transcript:empty::before {
-  content: "Transcript is empty — run the demo to watch negotiation live.";
-  padding: 1rem;
-  text-align: center;
+#transcript {
+  min-height: 9rem;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: none;
 }
 
 /* Demo flow hierarchy */
