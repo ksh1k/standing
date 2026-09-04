@@ -17,7 +17,6 @@ from standing.db import (
     table_columns,
 )
 
-# Forbidden residence-related column name fragments (constraint 2)
 RESIDENCE_PATTERNS = re.compile(
     r"(address|dorm|apartment|residence|home_?loc|building_of_residence|street|zip.?code)",
     re.IGNORECASE,
@@ -56,7 +55,6 @@ def test_constraint2_no_residence_columns_in_coordinator_schema(tmp_path: Path) 
 def test_constraint2_no_residence_in_sql_source() -> None:
     for path in (MEMBER_MIGRATION, *COORDINATOR_MIGRATIONS):
         text = path.read_text(encoding="utf-8")
-        # Ignore SQL comment lines when scanning for forbidden identifiers as columns
         code_lines = [
             ln for ln in text.splitlines() if not ln.strip().startswith("--")
         ]

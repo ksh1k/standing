@@ -25,7 +25,7 @@ def test_coordinator_has_no_availability_column_anywhere(tmp_path: Path) -> None
 
 
 def test_coordinator_students_expected_columns_only(tmp_path: Path) -> None:
-    """students table: student_id, year, courses, preferred_group_size, preferred_zones, study_style (+ created_at)."""
+    """students has expected columns; no availability/display_name."""
     db = tmp_path / "coordinator.db"
     apply_coordinator_migrations(db)
     conn = sqlite3.connect(db)
@@ -42,4 +42,4 @@ def test_coordinator_students_expected_columns_only(tmp_path: Path) -> None:
     }
     assert required <= cols
     assert "availability" not in cols
-    assert "display_name" not in cols  # display_name stays on member side
+    assert "display_name" not in cols

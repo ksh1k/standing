@@ -1,4 +1,4 @@
-"""Pydantic / dataclass shapes for Phase 1 (no business logic)."""
+"""Dataclass shapes (no business logic)."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from standing.constants import (
 
 @dataclass
 class TimeOfDayWeights:
-    """Relative preference weights for morning / afternoon / evening."""
+    """ToD preference weights."""
 
     morning: float = 1.0
     afternoon: float = 1.0
@@ -31,10 +31,7 @@ class TimeOfDayWeights:
 
 @dataclass
 class MemberProfile:
-    """Full student profile — lives ONLY in the member agent DB.
-
-    Availability bitmap (224 bits) must never leave the member store.
-    """
+    """Full profile — member DB only; availability never leaves member store."""
 
     student_id: str
     display_name: str
@@ -49,7 +46,7 @@ class MemberProfile:
 
 @dataclass
 class CoordinatorStudentView:
-    """Coordinator-visible student fields — NEVER includes availability."""
+    """Coordinator view — never includes availability."""
 
     student_id: str
     year: YearLevel
@@ -60,12 +57,12 @@ class CoordinatorStudentView:
 
 
 def normalize_course_code(raw: str) -> str:
-    """Normalize course codes: uppercase, strip whitespace."""
+    """Uppercase + strip whitespace."""
     return "".join(raw.split()).upper()
 
 
 def profile_to_dict(profile: MemberProfile) -> dict[str, Any]:
-    """Serialize member profile for storage helpers (no I/O)."""
+    """Serialize member profile (no I/O)."""
     return {
         "student_id": profile.student_id,
         "display_name": profile.display_name,

@@ -1,4 +1,4 @@
-"""Coordinator negotiation session: propose / aggregate / confirm with leakage-safe state."""
+"""Coordinator negotiation: propose / aggregate / confirm (leakage-safe)."""
 
 from __future__ import annotations
 
@@ -63,11 +63,7 @@ class _Candidate:
 
 @dataclass
 class NegotiateSession:
-    """In-process coordinator search over member evaluate() callbacks.
-
-    Persists only per-candidate accept_count / status (no per-member verdicts).
-    Ephemeral per-round responses are discarded after aggregating counts.
-    """
+    """In-process search over member evaluate(); persists accept_count only."""
 
     group_id: str
     members: list[MemberLike]
@@ -92,8 +88,6 @@ class NegotiateSession:
         self._best_accepts = -1
         if self.db_path is not None:
             self._persist_init()
-
-    # --- persistence (aggregate counts only) ---
 
     def _conn(self) -> sqlite3.Connection:
         assert self.db_path is not None
@@ -176,7 +170,6 @@ class NegotiateSession:
         ]
         if not pending:
             return None
-        # Highest score; tie-break lower slot index for determinism.
         return max(pending, key=lambda c: (c.score, -c.slot))
 
     def _apply_shift_hints(self, deltas: list[int], base_slot: int) -> None:
@@ -211,7 +204,6 @@ class NegotiateSession:
             propose = Propose(group_id=self.group_id, start_slot=slot)
             self.log.append(propose.as_dict())
 
-            # Ephemeral per-round responses — discarded after aggregating counts.
             accepts = 0
             any_reject = False
             shift_deltas: list[int] = []
@@ -247,14 +239,12 @@ class NegotiateSession:
                     member_count=n_members,
                 )
 
-            # Not unanimous accept: remove candidate; apply shift hints; continue.
             cand.status = CandidateStatus.REJECTED
             self._persist_candidate(cand)
             self._apply_shift_hints(shift_deltas, slot)
             outcome = "rejected" if any_reject else "no_unanimous"
             self._persist_round(self._rounds, slot, accepts, outcome)
 
-        # Budget exhausted or no candidates left — best partial, never silent confirm.
         return NegotiationResult(
             status="partial",
             start_slot=self._best_slot,
@@ -267,7 +257,7 @@ class NegotiateSession:
 
 @dataclass
 class InProcessMember:
-    """Member agent store: availability stays private to this object."""
+    """Member store: availability private to this object."""
 
     student_id: str
     _availability: str

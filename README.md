@@ -1,62 +1,39 @@
 # Standing
 
-Local study-group coordination for campus peers. Phase 1 scaffold + Phase 2 negotiation + Phase 3 group formation (greedy + local search + negotiate gate).
-
-Enrollment data is self-reported or synthetic. Everything is designed to run on localhost only.
+Local study-group coordination for campus peers (Phases 1–4). Enrollment is self-reported or synthetic; everything binds to localhost.
 
 ## Hard constraints
 
-1. No real university systems. Do not attempt to access, log into, scrape, or automate any tamu.edu domain or any university portal, registration system, or learning management system. Do not request my university credentials. All enrollment data in this project is self-reported by the user or synthetic.
-2. No residence data. Never collect, store, or process a student's address, dorm, apartment, or building of residence. Location preference is expressed only as a coarse public campus zone chosen from a fixed list, for example "west campus" or "main library". If you find yourself adding a home location field, stop and ask me.
-3. Schedules never cross the boundary. A student's availability bitmap lives only in their own agent's store. No other agent, including the coordinator, may request, receive, or persist another student's full bitmap. The coordinator learns only accept/reject answers to specific proposed slots, and nothing else.
-4. Attendance is private. Individual attendance records are visible only to that student and are never shown to other group members. Group-level aggregate statistics are fine.
-5. Group meetings only, in public places. The system never proposes a one-on-one first meeting and never proposes any location that is residential. Default group size is 4 to 6.
-6. Everything runs locally. All services bind to localhost. Do not deploy anything publicly, send real email, or post to any external service without asking me first.
+1. No real university systems (no tamu.edu / portals / LMS; no university credentials).
+2. No residence data — location prefs are coarse public campus zones only.
+3. Availability bitmaps stay in the owning member agent; coordinator sees only accept/reject for proposed slots.
+4. Individual attendance is private to that student.
+5. Group meetings (size 4–6) in public places only — never 1:1 first meetings or residential locations.
+6. Localhost only — no public deploy, email, or external posts without asking.
 
 ## Stack
 
-- Python 3.11+
-- SQLite (stdlib)
-- FastAPI + uvicorn
-- pytest
-- icalendar
-- stdlib only beyond the above (no React, Docker, ORM, or cloud services)
+Python 3.11+, SQLite (stdlib), FastAPI + uvicorn, pytest, icalendar. No React/Docker/ORM/cloud.
 
 ## Layout
 
 ```
-standing/
-  README.md
-  DECISIONS.md
-  requirements.txt
-  standing/
-    constants.py
-    models.py
-    db.py
-    migrations/
-      001_member.sql
-      001_coordinator.sql
-      002_coordinator.sql   # negotiation_candidates / negotiation_rounds
-    negotiation/            # Phase 2 protocol
-    formation/              # Phase 3 greedy + local search + pipeline
-    coordinator/app.py
-    member/app.py
-  tests/
-    fixtures/five_students.py
-    fixtures/formation_pool.py
-  static/                   # reserved for later UI
+standing/          # package: constants, models, db, migrations, negotiation, formation
+seed_synthetic.py  # Phase 4: reproducible 300×12 population
+run_simulation.py  # Phase 4: form + negotiate → report
+data/              # synthetic_students.json, simulation_stats.json
+tests/             # fixtures + constraint / negotiation / formation / synthetic tests
+SIMULATION_REPORT.md
 ```
 
 ## Setup
 
 ```bash
-cd /workspace/standing
-python3 -m venv .venv
-source .venv/bin/activate
+cd /workspace/standing && python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Run stubs (localhost only)
+## Run stubs
 
 ```bash
 source .venv/bin/activate
@@ -67,25 +44,25 @@ uvicorn standing.member.app:app --host 127.0.0.1 --port 8001
 ## Tests
 
 ```bash
-source .venv/bin/activate
-pytest -v
+source .venv/bin/activate && pytest -v
 ```
 
-Phase 2 negotiation is exercised in-process via `NegotiateSession` (see `tests/test_negotiation.py` and `tests/fixtures/five_students.py`). Expected unanimous fixture slot: **78** (Wed 14:00).
+Phase 2 fixture slot: **78** (Wed 14:00). Phase 3: greedy → local search (seed 42, 200 iters) → negotiate gate.
 
-Phase 3 formation:
+## Phase 4 — seed + simulation
 
 ```bash
 source .venv/bin/activate
-pytest -v tests/test_formation.py
+python seed_synthetic.py                  # → data/synthetic_students.json (seed 20260903)
+python run_simulation.py                  # full 300-student sim → SIMULATION_REPORT.md + data/simulation_stats.json
+python run_simulation.py --subset 24      # fast smoke subset
 ```
 
-Uses greedy pack → local search (seed 42, 200 iters) → real negotiation gate. Soft scoring never sees bitmaps.
+Bitmaps stay member-side; formation soft scoring never sees them.
 
 ## Phase status
 
-- **Phase 1:** repo, dual SQLite schemas, slot grid, `/healthz` stubs, structural tests
-- **Phase 2:** message types, member `evaluate`, coordinator search (40-round budget), JSONL log, leakage tests, 5-student fixture proof
-- **Phase 3:** group formation (greedy + local search + negotiate-only-CONFIRM), formation tests
-
-**Out of scope still:** formation UI, production messaging transport, Phase 4+.
+- **1:** dual SQLite, slot grid, `/healthz`, structural tests
+- **2:** propose/respond/confirm, member evaluate, 40-round search, leakage tests
+- **3:** greedy + local search + CONFIRM-only emit
+- **4:** synthetic 300×12 population + formation/negotiation simulation report

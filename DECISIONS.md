@@ -1,173 +1,73 @@
 # Design decisions
 
-Unspecified choices recorded here so later phases stay consistent.
+Unspecified choices recorded here for later-phase consistency.
 
 ## Campus zones (fixed enum)
 
-Public places only (constraint 2 / 5). Invented small fixed list:
-
-| Enum value           | Meaning              |
-|----------------------|----------------------|
-| `west_campus`        | West campus area     |
-| `east_campus`        | East campus area     |
-| `main_library`       | Main library         |
-| `student_center`     | Student center       |
-| `engineering_quad`   | Engineering quad     |
-
-No residential locations are ever valid zone values.
+Public places only (constraints 2 / 5): `west_campus`, `east_campus`, `main_library`, `student_center`, `engineering_quad`. Never residential.
 
 ## Slot grid
 
-- Days: Monday–Sunday (indices 0–6)
-- Hours: 07:00–23:00 local, 30-minute slots → 32 slots/day, 224/week (indices 0–223)
-- Meeting length: 3 consecutive slots (90 minutes)
-- Meetings must not cross a day boundary → 30 legal starts/day × 7 = 210 legal meeting starts/week
-- Constants live in `standing/constants.py`
-- **`start_slot` in negotiation messages is a week-bitmap index (0–223)** that satisfies `is_legal_meeting_start`, not a 0–209 dense index.
+- Days Mon–Sun (0–6); hours 07:00–23:00 local; 30-min slots → 32/day, 224/week (0–223)
+- Meeting = 3 consecutive slots (90 min); no day-boundary cross → 30 legal starts/day × 7 = 210
+- Constants in `standing/constants.py`
+- Negotiation `start_slot` is a week-bitmap index (0–223) with `is_legal_meeting_start`
 
-## Availability encoding
+## Availability / courses / prefs
 
-- Member DB column `student_profile.availability` is `TEXT NOT NULL`
-- Wire/storage codec: 224-character string of `0`/`1` (`1` = free)
-- Coordinator DB has **no** availability column (enforced by tests)
-
-## Courses storage
-
-- Stored as JSON text arrays in SQLite (`courses TEXT`)
-- Normalized with `normalize_course_code`: uppercase + whitespace stripped
-
-## Preferred zones / time-of-day
-
-- `preferred_zones`: JSON text array of `CampusZone` values
-- `time_of_day_preference`: JSON object with keys `morning`, `afternoon`, `evening` (floats); member DB only
-
-### ToD buckets for scoring (Phase 2)
-
-Slot-in-day index on the 07:00–23:00 grid:
-
-| Bucket      | Slot-in-day | Clock (start)   |
-|-------------|-------------|-----------------|
-| morning     | 0–9         | 07:00–11:30     |
-| afternoon   | 10–19       | 12:00–16:30     |
-| evening     | 20–29       | 17:00–22:30     |
+- Member `student_profile.availability`: 224-char `0`/`1` string (`1` = free). Coordinator has **no** availability column.
+- Courses: JSON text arrays; `normalize_course_code` = uppercase + strip whitespace
+- `preferred_zones`: JSON `CampusZone` array; `time_of_day_preference`: `{morning,afternoon,evening}` floats (member only)
+- ToD buckets (slot-in-day): morning 0–9, afternoon 10–19, evening 20–29
 
 ## Dual databases
 
-- **Member DB:** full profile (incl. `display_name`, `availability`, `time_of_day_preference`) + private `attendance` table
-- **Coordinator DB:** `students` (no availability, no display_name), `groups`, `sessions` (no per-member attended columns), plus Phase 2 negotiation tables
-- Separate SQLite files; applied via `standing.db.apply_*_migrations`
+- **Member:** full profile (`display_name`, availability, ToD) + private `attendance`
+- **Coordinator:** `students` (no availability / display_name), `groups`, `sessions` (no per-member attended), Phase 2 negotiation tables
+- Separate SQLite files via `standing.db.apply_*_migrations`
 
-## FastAPI
+## FastAPI / group defaults
 
-- Coordinator: `GET /healthz` only. Negotiation is **in-process** (`NegotiateSession`) so availability never enters coordinator HTTP handlers.
-- Member: `GET /healthz`, optional `POST /availability` + `POST /evaluate` for local demo (bitmap stays in the member process).
-- Bind intent: `--host 127.0.0.1` (constraint 6)
-
-## Group defaults
-
-- `preferred_group_size` CHECK between 4 and 6 (constraint 5)
-- Group `status`: `forming` | `active` | `disbanded`
-- `scheduled_slot` on `groups` is nullable until a slot is agreed (later phases)
-
-## Sessions vs attendance
-
-- Coordinator `sessions`: `session_id`, `group_id`, `scheduled_datetime`, `location` only
-- Individual attendance lives only in member `attendance` (constraint 4)
-- Group-level aggregates may be derived later without exposing per-member rows to peers
+- Coordinator: `GET /healthz` only; negotiation in-process (`NegotiateSession`) so bitmaps never hit coordinator HTTP
+- Member: `GET /healthz`, optional `POST /availability` + `POST /evaluate` (local demo)
+- Bind `--host 127.0.0.1` (constraint 6)
+- `preferred_group_size` CHECK 4–6; group status `forming|active|disbanded`; `scheduled_slot` nullable until agreed
+- Attendance only in member DB (constraint 4)
 
 ## Phase 2 — Negotiation
 
-### Message types (JSONL log)
+| type | fields |
+|------|--------|
+| PROPOSE | `start_slot` |
+| RESPOND | `start_slot`, `verdict: {kind, delta?}` — **no `student_id`** |
+| CONFIRM | `start_slot` |
+| WITHDRAW | `reason`, optional `student_id` |
 
-Each line is one JSON object with `type`, `group_id`, `ts` (UTC ISO), plus:
-
-| type      | fields |
-|-----------|--------|
-| PROPOSE   | `start_slot` |
-| RESPOND   | `start_slot`, `verdict: {kind, delta?}` — **no `student_id`** |
-| CONFIRM   | `start_slot` |
-| WITHDRAW  | `reason`, optional `student_id` |
-
-Log path is configurable (`NegotiationLog`); tests use a tmp path.
-
-### Verdicts
-
-- `accept` | `reject` | `accept_if_shifted` with `delta ∈ {-2,-1,+1,+2}`
-- Member `evaluate` tries shifts in order `-1, +1, -2, +2` (nearer first)
-
-### Scoring / search
-
-- Candidate set = all 210 legal starts
-- **Base score** = mean of members’ ToD weights for that slot’s bucket
-- **Shift-hint bonus** = `+1.0` per `accept_if_shifted` pointing at that slot (cumulative within a session)
-- Propose highest score; tie-break **lower `start_slot`**
-- Unanimous `accept` → CONFIRM and stop
-- Otherwise mark candidate rejected, apply shift hints, continue
-- **Budget** = 40 proposal rounds (`PROPOSAL_BUDGET`)
-- On exhaustion: return best partial (`start_slot` with max `accept_count`); **never** CONFIRM a slot any member rejected
-
-### Aggregate ToD preference
-
-Coordinator receives ToD **weights only** (not bitmaps) to score candidates. Bitmaps stay inside `InProcessMember` / member agent stores.
-
-### Persistence (leakage-safe)
-
-Migration `002_coordinator.sql`:
-
-- `negotiation_candidates(negotiation_id, slot, accept_count, status, score)` — aggregate counts only
-- `negotiation_rounds(...)` — per-round meta (`proposed_slot`, `accept_count`, `outcome`)
-- **No** per-member per-candidate verdict table after round resolution
-- Ephemeral in-memory per-round responses discarded after aggregating `accept_count`
-
-### Five-student fixture
-
-- `tests/fixtures/five_students.py`
-- **Expected unanimous slot = 78** (Wednesday 14:00)
-- Documented decoys force search (not first-pick)
-
-## Dependencies
-
-- Only: FastAPI, uvicorn, pytest, icalendar (+ their transitive deps from pip)
-- SQLite via stdlib `sqlite3`
-- No ORM, Docker, React, or cloud SDKs
-
-## Local-only git
-
-- Repository initialized at `/workspace/standing`
-- No remote push; no `git config` changes by automation
+- Verdicts: `accept` | `reject` | `accept_if_shifted` (`delta ∈ {-2,-1,+1,+2}`); member tries shifts `-1,+1,-2,+2`
+- Score = mean ToD weight for slot bucket + `+1.0` per shift hint; propose max score, tie-break lower slot
+- Unanimous accept → CONFIRM; else reject candidate, apply hints; budget `PROPOSAL_BUDGET=40`
+- Exhaustion → best partial (`accept_count`); never CONFIRM a rejected slot
+- Coordinator gets ToD weights only; bitmaps stay in `InProcessMember`
+- Persist (`002_coordinator.sql`): `negotiation_candidates` / `negotiation_rounds` aggregates only — no per-member verdict table
+- Fixture `tests/fixtures/five_students.py`: expected unanimous slot **78** (Wed 14:00)
 
 ## Phase 3 — Group formation
 
-### Pipeline
+1. **Greedy** (`greedy.py`): pack sizes via `best_pack_sizes` [4,6]; courses by descending eligible count; soft fill + `student_id` tie-break
+2. **Local search** (`local_search.py`): swap / reassign / form-from-unplaced; accept strict objective increases; seed `42`, iters `200`
+3. **Negotiate gate** (`pipeline.py`): emit only CONFIRM groups. Soft score never reads bitmaps.
 
-1. **Greedy seed** (`standing/formation/greedy.py`): normalize courses; process courses by descending eligible count; pack sizes via `best_pack_sizes` to maximize placement with group sizes in [4, 6]; fill each group by marginal soft score (tie-break `student_id`).
-2. **Local search** (`standing/formation/local_search.py`): hill-climb with swap / reassign / form-from-unplaced moves; accept only strict objective increases.
-3. **Negotiate gate** (`standing/formation/pipeline.py`): for each candidate, run Phase 2 `NegotiateSession` (or injectable stub in unit tests). **Emit only groups that CONFIRM.** Soft scoring never reads availability bitmaps; bitmaps stay in `InProcessMember` / member agents.
+Objective: `W_PLACE=1e6` × placed + Σ groups (`W_STYLE=1e3`·style + `W_YEAR=10`·year + `W_ZONE=1`·zones). Soft scoring uses `FormationStudent` (no availability). Stubs `always_confirm_stub` / `never_confirm_stub` for combinatorial unit tests only.
 
-### Objective weights (`standing/formation/objective.py`)
+## Phase 4 — Synthetic population + simulation
 
-Lexicographic-style scalar (each tier dominates lower tiers for realistic pools):
+- Seed: `SYNTHETIC_SEED = 20260903` (fixed); 300 students × 12 courses
+- Courses: `CSCE121`, `CSCE221`, `CSCE314`, `CSCE315`, `MATH151`, `MATH152`, `MATH304`, `PHYS206`, `PHYS207`, `ENGL104`, `STAT211`, `ECEN214`
+- Availability model: each course has a class block (busy) + a primary shared evening/weekend free window for most enrollees; per-student evening/weekend jitter and a minority with conflicting free windows so some groups fail negotiation
+- Bitmaps only on member side during sim negotiation; no residence fields
+- Artifacts: `data/synthetic_students.json`, `data/simulation_stats.json`, `SIMULATION_REPORT.md`
 
-| Priority | Term | Weight | Scoring |
-|----------|------|--------|---------|
-| 1 | Placement | `W_PLACE = 1_000_000` | `×` number of students in some candidate group |
-| 2 | Shared study_style | `W_STYLE = 1_000` | Per group: fraction sharing modal `study_style` (0..1) |
-| 3 | Year diversity | `W_YEAR = 10` | Per group: `#unique years / group size` (0..1) |
-| 4 | Zone overlap | `W_ZONE = 1` | Per group: mean pairwise Jaccard of `preferred_zones` (0..1) |
+## Dependencies / git
 
-`partition_score = W_PLACE * n_placed + Σ_groups (W_STYLE·style + W_YEAR·year + W_ZONE·zones)`.
-
-### Local search defaults
-
-| Parameter | Default | Notes |
-|-----------|---------|-------|
-| Random seed | `42` (`DEFAULT_SEED`) | Fixed for reproducibility |
-| Iteration budget | `200` (`DEFAULT_ITERS`) | Fixed; tests may pass a smaller budget |
-
-Moves (same `course_code` only): inter-group member swap; placed↔unplaced swap; add unplaced into a group with room; form a new group from ≥4 unplaced sharing a course.
-
-### Coordinator vs member data
-
-- Formation soft scoring uses `FormationStudent` (mirror of coordinator view: year, courses, preferred_group_size, preferred_zones, study_style) — **no availability**.
-- Negotiation uses member-side `evaluate()` with private bitmaps.
-- Test stubs `always_confirm_stub` / `never_confirm_stub` may replace the negotiator **only** for pure combinatorial unit tests; integration tests use real `NegotiateSession`.
+- Only FastAPI, uvicorn, pytest, icalendar (+ transitive); SQLite via stdlib; no ORM/Docker/React/cloud
+- Repo at `/workspace/standing`; no remote push; no automation `git config` changes

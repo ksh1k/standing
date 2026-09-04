@@ -31,13 +31,7 @@ def test_coordinator_schema_still_has_no_availability(tmp_path: Path) -> None:
 
 
 def test_post_negotiation_state_hides_unproposed_availability(tmp_path: Path) -> None:
-    """After a full negotiation, coordinator SQLite state must not let an observer
-    derive a member's free/busy for any *unproposed* slot.
-
-    We only persist per-candidate accept_count / status / score — never
-    per-member verdicts. Unproposed pending rows share accept_count=0 / pending
-    regardless of whether a member would have accepted them.
-    """
+    """Coordinator state must not reveal free/busy for unproposed slots."""
     db_path = tmp_path / "coordinator.db"
     log_path = tmp_path / "negotiation_log.jsonl"
     apply_coordinator_migrations(db_path)

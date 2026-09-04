@@ -49,7 +49,7 @@ class Verdict:
 
 @dataclass(frozen=True)
 class Propose:
-    """Coordinator → member: propose a 90-min window start."""
+    """Coordinator → member: propose start."""
 
     group_id: str
     start_slot: int
@@ -65,11 +65,7 @@ class Propose:
 
 @dataclass(frozen=True)
 class Respond:
-    """Member → coordinator: verdict for a proposed slot.
-
-    student_id is NOT part of the wire message (leakage); callers may track
-    identity ephemerally in memory only.
-    """
+    """Member → coordinator verdict (no student_id on wire)."""
 
     group_id: str
     start_slot: int
@@ -87,7 +83,7 @@ class Respond:
 
 @dataclass(frozen=True)
 class Confirm:
-    """Coordinator → all members: unanimous slot locked."""
+    """Coordinator → members: unanimous slot locked."""
 
     group_id: str
     start_slot: int
@@ -103,7 +99,7 @@ class Confirm:
 
 @dataclass(frozen=True)
 class Withdraw:
-    """Member → coordinator: leave the negotiation."""
+    """Member withdraws from negotiation."""
 
     group_id: str
     reason: str

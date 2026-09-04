@@ -1,0 +1,14 @@
+{
+  "n_students": 300,
+  "n_groups_confirmed": 51,
+  "n_groups_failed": 21,
+  "students_placed": 208,
+  "students_unplaced": 92,
+  "group_size_distribution": {
+    "4": 47,
+    "5": 4
+  },
+  "mean_negotiation_rounds": 1.0,
+  "objective_before": 300065118.63,
+  "objective_after": 300065122.15
+}

@@ -14,7 +14,7 @@ from standing.formation.objective import FormationStudent
 from standing.models import TimeOfDayWeights
 from standing.negotiation.coordinator_negotiate import InProcessMember
 
-# Monday 07:00 — first legal start; uniform ToD → confirms on first propose.
+# Slot 0; morning ToD → first propose confirms.
 FAST_SLOT: int = 0
 
 YEARS = (
@@ -83,7 +83,7 @@ def make_member(sid: str, bitmap: str | None = None) -> InProcessMember:
 def pool_eight_same_course() -> tuple[
     list[FormationStudent], dict[str, InProcessMember]
 ]:
-    """8 students, one course → greedy packs 4+4 (places all); naive packs 6."""
+    """8 students, one course → greedy 4+4."""
     students: list[FormationStudent] = []
     members: dict[str, InProcessMember] = {}
     for i in range(8):
@@ -103,9 +103,8 @@ def pool_eight_same_course() -> tuple[
 def pool_no_overlap() -> tuple[
     list[FormationStudent], dict[str, InProcessMember]
 ]:
-    """4 students, same course, pairwise-disjoint availability → no CONFIRM."""
+    """4 students, disjoint availability → no CONFIRM."""
     students = [make_student(f"n{i}") for i in range(4)]
-    # Distinct non-overlapping windows so no unanimous slot.
     starts = [0, 10, 20, 32]  # different ToD / day
     members = {
         f"n{i}": make_member(f"n{i}", free_at(starts[i])) for i in range(4)
@@ -119,8 +118,7 @@ def pool_soft_improvable() -> tuple[
     list[str],
     dict[str, FormationStudent],
 ]:
-    """Hand partition with mixed styles; a swap raises style coherence."""
-    # Two groups of 4, same course. Intentionally cross-style.
+    """Mixed-style partition; a swap raises style coherence."""
     specs = [
         ("a0", StudyStyle.DISCUSSION, YearLevel.FRESHMAN),
         ("a1", StudyStyle.QUIET_PARALLEL, YearLevel.SOPHOMORE),
@@ -135,7 +133,6 @@ def pool_soft_improvable() -> tuple[
         make_student(sid, style=style, year=year) for sid, style, year in specs
     ]
     by_id = {s.student_id: s for s in students}
-    # Mixed partition (2 discussion + 2 quiet each) — suboptimal vs pure styles
     groups = [
         ("g0", "CSCE221", ["a0", "a1", "a2", "a3"]),
         ("g1", "CSCE221", ["b0", "b1", "b2", "b3"]),

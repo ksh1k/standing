@@ -60,7 +60,7 @@ def test_hard_constraints_enforced(tmp_path: Path) -> None:
 
 
 def test_objective_improves_or_equal_after_local_search() -> None:
-    """Hill climbing: after >= before. Crafted mixed partition shows a rise."""
+    """Hill climbing: after >= before; mixed partition should rise."""
     _students, groups, unplaced, by_id = pool_soft_improvable()
     before = partition_score([m for _, _, m in groups], by_id)
     out, _u, score_before, score_after = local_search(
@@ -68,23 +68,17 @@ def test_objective_improves_or_equal_after_local_search() -> None:
     )
     assert score_before == before
     assert score_after >= score_before
-    # With enough iters, style-pure swaps should raise coherence
-    assert score_after > score_before, (
-        f"expected soft improvement on mixed partition; "
-        f"before={score_before} after={score_after} groups={out}"
-    )
-    print(f"LOCAL_SEARCH_OBJECTIVE before={score_before} after={score_after}")
+    assert score_after > score_before, (score_before, score_after, out)
 
 
 def test_placement_beats_naive_single_group(tmp_path: Path) -> None:
-    """Greedy packs 4+4 (8 placed); naive single-group places at most 6."""
+    """Greedy 4+4 beats naive single-group (≤6)."""
     pool, members = pool_eight_same_course()
     naive_groups, naive_left = naive_single_group(pool, "CSCE221")
     naive_placed = sum(len(m) for _, _, m in naive_groups)
     assert naive_placed == 6
     assert len(naive_left) == 2
 
-    # Combinatorial path with stub (placement is decided before negotiation)
     result = form_groups(
         pool,
         members,
@@ -96,12 +90,7 @@ def test_placement_beats_naive_single_group(tmp_path: Path) -> None:
     placed = sum(len(g.member_ids) for g in result.groups)
     assert placed > naive_placed
     assert placed == 8
-    # Greedy already optimal for placement on this pool; local search keeps it.
     assert result.objective_after >= result.objective_before
-    print(
-        f"PLACEMENT_DEMO naive={naive_placed} formed={placed} "
-        f"obj_before={result.objective_before} obj_after={result.objective_after}"
-    )
 
 
 def test_groups_without_unanimous_slot_not_emitted(tmp_path: Path) -> None:
@@ -122,17 +111,12 @@ def test_never_confirm_stub_emits_nothing() -> None:
 
 
 def test_integration_real_negotiation_confirms_fast_slot(tmp_path: Path) -> None:
-    """Integration: real NegotiateSession on fast bitmaps → CONFIRM."""
+    """Real NegotiateSession on fast bitmaps → CONFIRM."""
     pool, members = pool_eight_same_course()
     result = form_groups(pool, members, seed=42, iters=30, log_dir=tmp_path)
     assert result.groups
     for g in result.groups:
         assert g.confirmed_slot == FAST_SLOT
-    print(
-        f"PIPELINE_OBJECTIVE before={result.objective_before} "
-        f"after={result.objective_after} n_groups={len(result.groups)}"
-    )
-
 
 def test_greedy_seed_same_course_hard_constraint() -> None:
     pool = [
@@ -158,7 +142,7 @@ def test_greedy_seed_same_course_hard_constraint() -> None:
 
 
 def test_objective_weights_prioritize_placement() -> None:
-    """One placed student outweighs any soft scores from empty soft terms."""
+    """One placed student outweighs soft-only scores."""
     s = make_student("z0")
     one = partition_score([["z0"]], {"z0": s})
     assert one >= W_PLACE

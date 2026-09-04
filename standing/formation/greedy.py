@@ -14,11 +14,7 @@ MAX_G = DEFAULT_GROUP_SIZE_MAX
 
 
 def best_pack_sizes(n: int) -> list[int]:
-    """Group sizes in [4,6] maximizing students placed, then number of groups.
-
-    Deterministic tie-break: among equal (placed, n_groups), prefer the size
-    multiset whose descending-sorted tuple is lexicographically largest.
-    """
+    """Sizes in [4,6] maximizing placed, then n_groups, then descending size tuple."""
     if n < MIN_G:
         return []
     best_key: tuple[int, int, tuple[int, ...]] = (-1, -1, ())
@@ -47,7 +43,7 @@ def _fill_score(
 def _assign_to_sizes(
     eligible: list[FormationStudent], sizes: list[int]
 ) -> tuple[list[list[str]], list[str]]:
-    """Fill groups of given sizes from eligible (mutates a local remaining list)."""
+    """Fill groups of given sizes from eligible."""
     remaining = list(eligible)
     remaining.sort(key=lambda s: (s.study_style.value, s.student_id))
     groups: list[list[str]] = []
@@ -76,7 +72,7 @@ def seed_groups_for_course(
     course: str,
     pool: Sequence[FormationStudent],
 ) -> tuple[list[list[str]], list[str]]:
-    """Greedy-assign students who take ``course`` into packed groups."""
+    """Assign students taking ``course`` into packed groups."""
     eligible = [s for s in pool if course in s.courses]
     sizes = best_pack_sizes(len(eligible))
     if not sizes:
@@ -89,20 +85,14 @@ def greedy_seed(
     *,
     group_id_prefix: str = "g",
 ) -> tuple[list[tuple[str, str, list[str]]], list[str]]:
-    """Seed candidate groups across the pool.
-
-    Returns ``(groups, unplaced_ids)`` where each group is
-    ``(group_id, course_code, member_ids)``. Each student joins at most one
-    group. Courses are tried in descending eligible-count order (tie-break
-    course code) so multi-course students prefer larger markets first.
-    """
+    """Seed groups: each student ≤1 group; courses by descending eligible count."""
     by_id: dict[str, FormationStudent] = {s.student_id: s for s in pool}
     for s in pool:
         s.courses = [normalize_course_code(c) for c in s.courses]
 
     course_to_ids: dict[str, list[str]] = defaultdict(list)
     for s in pool:
-        for code in dict.fromkeys(s.courses):  # stable unique
+        for code in dict.fromkeys(s.courses):
             course_to_ids[code].append(s.student_id)
 
     course_order = sorted(
@@ -135,7 +125,7 @@ def naive_single_group(
     *,
     group_id: str = "naive0",
 ) -> tuple[list[tuple[str, str, list[str]]], list[str]]:
-    """Baseline: one largest valid group for ``course``, rest unplaced."""
+    """Baseline: one largest valid group for ``course``."""
     eligible = sorted(
         [s for s in pool if course in s.courses],
         key=lambda s: (s.study_style.value, s.student_id),

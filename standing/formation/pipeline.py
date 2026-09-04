@@ -77,7 +77,7 @@ def always_confirm_stub(
     members: list[MemberLike],
     member_tod: list[TimeOfDayWeights],
 ) -> tuple[bool, int | None]:
-    """Test-only stub: pretend every candidate CONFIRMs at slot 0."""
+    """Test stub: every candidate CONFIRMs at slot 0."""
     return True, 0
 
 
@@ -86,7 +86,7 @@ def never_confirm_stub(
     members: list[MemberLike],
     member_tod: list[TimeOfDayWeights],
 ) -> tuple[bool, int | None]:
-    """Test-only stub: negotiation never finds a slot."""
+    """Test stub: never finds a slot."""
     return False, None
 
 
@@ -100,21 +100,14 @@ def form_groups(
     negotiator: NegotiatorFn | None = None,
     log_dir: Path | None = None,
 ) -> FormationResult:
-    """Run greedy → score → local search → negotiate each candidate.
-
-    Soft scoring uses only ``pool`` (no bitmaps). Negotiation uses
-    ``members_by_id`` evaluate() callbacks (bitmaps stay member-side).
-    Only candidates that CONFIRM are emitted.
-    """
+    """Greedy → local search → negotiate; emit CONFIRM groups only (no bitmaps in soft score)."""
     students = {s.student_id: s for s in pool}
     seeded, unplaced0 = greedy_seed(pool)
-    # Score after greedy (before local search)
     obj_before = partition_score([m for _, _, m in seeded], students)
 
     improved, unplaced, _sb, obj_after = local_search(
         seeded, unplaced0, students, seed=seed, iters=iters
     )
-    # Prefer reported before from local_search's own snapshot of its input
     obj_before = _sb
 
     neg = negotiator

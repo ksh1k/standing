@@ -11,7 +11,6 @@ from standing.formation.objective import FormationStudent, partition_score
 MIN_G = DEFAULT_GROUP_SIZE_MIN
 MAX_G = DEFAULT_GROUP_SIZE_MAX
 
-# Defaults documented in DECISIONS.md
 DEFAULT_SEED: int = 42
 DEFAULT_ITERS: int = 200
 
@@ -24,17 +23,7 @@ def local_search(
     seed: int = DEFAULT_SEED,
     iters: int = DEFAULT_ITERS,
 ) -> tuple[list[tuple[str, str, list[str]]], list[str], float, float]:
-    """Hill-climb with random swap moves; return improved partition + scores.
-
-    Moves (same course only):
-      0. Swap one member between two groups
-      1. Swap a placed member with an unplaced student who shares the course
-      2. Move an unplaced student into a group with room (< max size)
-      3. Form a new group from ≥4 unplaced students sharing a course
-
-    Accepts a move only if ``partition_score`` strictly increases.
-    Reports objective BEFORE and AFTER local search.
-    """
+    """Hill-climb (same-course swap/reassign/form); accept strict score increases."""
     cur_groups: list[tuple[str, str, list[str]]] = [
         (gid, course, list(members)) for gid, course, members in groups
     ]
@@ -123,7 +112,6 @@ def local_search(
                 cur_unplaced.append(u)
 
         else:
-            # New group from unplaced sharing a course
             by_c: dict[str, list[str]] = {}
             for u in cur_unplaced:
                 for c in students[u].courses:

@@ -44,7 +44,7 @@ def test_fixture_documents_expected_slot() -> None:
 
 
 def test_five_student_negotiation_confirms_expected_slot(tmp_path: Path) -> None:
-    """Hand-built fixture: negotiation CONFIRMs the documented unanimous slot."""
+    """Fixture confirms documented unanimous slot."""
     log_path = tmp_path / "negotiation_log.jsonl"
     db_path = tmp_path / "coordinator.db"
     apply_coordinator_migrations(db_path)
@@ -75,9 +75,8 @@ def test_five_student_negotiation_confirms_expected_slot(tmp_path: Path) -> None
 
 
 def test_rejected_member_prevents_confirm(tmp_path: Path) -> None:
-    """If any member rejects, that slot must not be CONFIRMed."""
+    """Any reject → no CONFIRM for that slot."""
     log_path = tmp_path / "negotiation_log.jsonl"
-    # Only member A free at 0 (first proposed under uniform ToD); B busy → reject.
     a = InProcessMember("a", _free_only([0]), TimeOfDayWeights())
     b = InProcessMember("b", _busy_bitmap(), TimeOfDayWeights())
     session = NegotiateSession(
@@ -103,10 +102,8 @@ def test_rejected_member_prevents_confirm(tmp_path: Path) -> None:
 
 
 def test_accept_if_shifted_reweights_and_finds_shifted_window(tmp_path: Path) -> None:
-    """Shift hints boost the hinted slot; negotiation confirms the shifted start."""
+    """Shift hints boost hinted slot → CONFIRM shifted start."""
     log_path = tmp_path / "negotiation_log.jsonl"
-    # Both free only at 12. Uniform ToD → propose low indices first.
-    # Propose 10 → both accept_if_shifted(+2); bonus lifts 12 above peers → CONFIRM 12.
     tod = TimeOfDayWeights(morning=1.0, afternoon=1.0, evening=1.0)
     bitmap = _free_only([12])
     members = [
@@ -135,10 +132,8 @@ def test_accept_if_shifted_reweights_and_finds_shifted_window(tmp_path: Path) ->
 
 
 def test_budget_returns_best_partial_without_confirm(tmp_path: Path) -> None:
-    """40-round budget: no unanimous slot → partial with accept counts, no CONFIRM."""
+    """Budget exhaust → partial, no CONFIRM."""
     log_path = tmp_path / "negotiation_log.jsonl"
-    # Overlapping but never all three members free on same start.
-    # m0 free at 10, m1 at 10 and 14, m2 at 14 only → max 2 accepts.
     tod = TimeOfDayWeights(morning=3.0, afternoon=1.0, evening=1.0)
     members = [
         InProcessMember("m0", _free_only([10]), tod),
