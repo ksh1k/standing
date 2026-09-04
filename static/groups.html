@@ -1,8 +1,35 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>My groups</title><link rel="stylesheet" href="/style.css"/><script src="/app.js" defer></script></head>
-<body><header><h1>My groups</h1><nav>
-<a href="/">Home</a><a href="/intake.html">Intake</a><a href="/groups.html">My groups</a><a href="/dashboard.html">Dashboard</a>
-</nav></header><main><div class="card row"><div><label>Student ID</label>
-<input id="student_id" value="s0"/></div>
-<button type="button" onclick="StandingUI.loadMyGroups()">Load my sessions</button></div>
-<p class="muted">Time + public place only — no other members' attendance or schedules.</p>
-<div id="groups_list"></div></main></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>My groups · Standing</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1><span class="mark">S</span>Standing</h1>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/intake.html">Intake</a>
+      <a class="active" href="/groups.html">My groups</a>
+      <a href="/dashboard.html">Dashboard</a>
+    </nav>
+  </header>
+  <main>
+    <div class="hero">
+      <h2>My groups</h2>
+      <p>Confirmed sessions show time and public place only — never other members' schedules.</p>
+    </div>
+    <div class="card row">
+      <div>
+        <label for="student_id">Student ID</label>
+        <input id="student_id" value="s0"/>
+      </div>
+      <button type="button" onclick="StandingUI.loadMyGroups()">Load my sessions</button>
+    </div>
+    <div id="groups_list"></div>
+  </main>
+</body>
+</html>

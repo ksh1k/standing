@@ -1,8 +1,41 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Standing</title><link rel="stylesheet" href="/style.css"/></head>
-<body><header><h1>Standing</h1><nav>
-<a href="/">Home</a><a href="/intake.html">Intake</a><a href="/groups.html">My groups</a><a href="/dashboard.html">Dashboard</a>
-</nav></header><main><div class="card"><h2>Local UI (Phases 1–7)</h2>
-<p class="muted">No auth. Bitmaps stay in the member agent. Dashboard shows PROPOSE/RESPOND/CONFIRM only.</p>
-<ul><li><a href="/intake.html">Student intake</a></li><li><a href="/groups.html">My groups</a></li>
-<li><a href="/dashboard.html">Coordinator dashboard</a> — live transcript + demo negotiate + .ics</li></ul>
-<p class="muted">Member API at <code>http://127.0.0.1:8001</code>.</p></div></main></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Standing</title>
+  <link rel="stylesheet" href="/style.css"/>
+</head>
+<body>
+  <header>
+    <h1><span class="mark">S</span>Standing</h1>
+    <nav>
+      <a class="active" href="/">Home</a>
+      <a href="/intake.html">Intake</a>
+      <a href="/groups.html">My groups</a>
+      <a href="/dashboard.html">Dashboard</a>
+    </nav>
+  </header>
+  <main>
+    <div class="hero">
+      <h2>Study groups that find a time — without sharing schedules</h2>
+      <p>Standing forms semester-long weekly groups on campus. Availability stays private; you only see place and time.</p>
+    </div>
+    <div class="grid">
+      <a class="card card-link" href="/intake.html">
+        <h3>Student intake</h3>
+        <p>Set courses, study style, and preferred campus zones.</p>
+      </a>
+      <a class="card card-link" href="/groups.html">
+        <h3>My groups</h3>
+        <p>See your confirmed sessions — time and public place only.</p>
+      </a>
+      <a class="card card-link" href="/dashboard.html">
+        <h3>Coordinator dashboard</h3>
+        <p>Watch live negotiation, run the demo, download .ics.</p>
+      </a>
+    </div>
+    <p class="muted">Local only · no auth · member API at <code>http://127.0.0.1:8001</code></p>
+  </main>
+</body>
+</html>

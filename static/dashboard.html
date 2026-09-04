@@ -1,16 +1,54 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Dashboard</title><link rel="stylesheet" href="/style.css"/><script src="/app.js" defer></script></head>
-<body><header><h1>Coordinator dashboard</h1><nav>
-<a href="/">Home</a><a href="/intake.html">Intake</a><a href="/groups.html">My groups</a><a href="/dashboard.html">Dashboard</a>
-</nav></header><main>
-<div class="card"><h2>Live negotiation transcript</h2>
-<p class="muted">Polls <code>/api/transcript</code> every 1s. Messages only — no bitmaps.</p>
-<div class="row"><button type="button" onclick="StandingUI.runDemoNegotiate()">Run 5-student demo negotiate</button>
-<button type="button" class="secondary" onclick="StandingUI.startPolling()">Start polling</button>
-<span id="demo_status" class="muted">Idle</span></div>
-<div id="transcript" class="card" style="margin-top:.75rem"></div></div>
-<div class="card"><h2>Scheduled groups</h2>
-<div class="row"><div><label>Filter student_id</label><input id="filter_student" placeholder="s0"/></div>
-<button type="button" onclick="StandingUI.loadCoordGroups()">Refresh groups</button></div>
-<div id="coord_groups"></div></div></main>
-<script>document.addEventListener("DOMContentLoaded",function(){StandingUI.startPolling();StandingUI.loadCoordGroups()})</script>
-</body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Dashboard · Standing</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1><span class="mark">S</span>Standing</h1>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/intake.html">Intake</a>
+      <a href="/groups.html">My groups</a>
+      <a class="active" href="/dashboard.html">Dashboard</a>
+    </nav>
+  </header>
+  <main>
+    <div class="hero">
+      <h2>Coordinator dashboard</h2>
+      <p>Live PROPOSE / RESPOND / CONFIRM transcript — bitmaps stay on member agents.</p>
+    </div>
+    <div class="card">
+      <h2>Live negotiation</h2>
+      <p class="muted">Polls <code>/api/transcript</code> every 1s.</p>
+      <div class="row">
+        <button type="button" id="run_demo_btn" onclick="StandingUI.runDemoNegotiate()">Run 5-student demo</button>
+        <button type="button" id="poll_btn" class="secondary" hidden onclick="StandingUI.startPolling()">Resume polling</button>
+        <span id="demo_status" class="muted pill">Idle</span>
+      </div>
+      <div id="transcript"></div>
+    </div>
+    <div class="card">
+      <h2>Scheduled groups</h2>
+      <div class="row">
+        <div>
+          <label for="filter_student">Filter by student ID</label>
+          <input id="filter_student" placeholder="s0"/>
+        </div>
+        <button type="button" onclick="StandingUI.loadCoordGroups()">Refresh groups</button>
+      </div>
+      <div id="coord_groups"></div>
+    </div>
+  </main>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      StandingUI.startPolling();
+      StandingUI.loadCoordGroups();
+    });
+  </script>
+</body>
+</html>
