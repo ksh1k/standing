@@ -1,6 +1,6 @@
 # Standing
 
-Local study-group coordination for campus peers (Phases 1–5). Enrollment is self-reported or synthetic; everything binds to localhost.
+Local study-group coordination for campus peers (Phases 1–6). Enrollment is self-reported or synthetic; everything binds to localhost.
 
 ## Hard constraints
 
@@ -18,11 +18,12 @@ Python 3.11+, SQLite (stdlib), FastAPI + uvicorn, pytest, icalendar. No React/Do
 ## Layout
 
 ```
-standing/          # package: constants, models, db, migrations, negotiation, formation, persistence
+standing/          # package: constants, models, db, migrations, negotiation, formation, persistence, calendar_ics
+static/            # Phase 6 HTML/JS/CSS (no build)
 seed_synthetic.py  # Phase 4: reproducible 300×12 population
 run_simulation.py  # Phase 4: form + negotiate → report
-data/              # synthetic_students.json, simulation_stats.json
-tests/             # fixtures + constraint / negotiation / formation / synthetic tests
+data/              # synthetic JSON + negotiation_log.jsonl + local SQLite
+tests/             # fixtures + constraint / negotiation / formation / synthetic / phase6 tests
 SIMULATION_REPORT.md
 ```
 
@@ -33,13 +34,25 @@ cd /workspace/standing && python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Run stubs
+## Run local UI (Phase 6 demo)
+
+Two terminals, repo root, `.venv` active. Bind localhost only.
 
 ```bash
-source .venv/bin/activate
-uvicorn standing.coordinator.app:app --host 127.0.0.1 --port 8000
+# Terminal A — coordinator + static UI + transcript / demo negotiate / .ics
+cd /workspace/standing && source .venv/bin/activate
+python -m standing.demo_server
+# equivalent:
+# uvicorn standing.coordinator.app:app --host 127.0.0.1 --port 8000
+
+# Terminal B — member agent (intake + my groups + notifications)
+cd /workspace/standing && source .venv/bin/activate
 uvicorn standing.member.app:app --host 127.0.0.1 --port 8001
 ```
+
+Open **http://127.0.0.1:8000/** — Intake, My groups, Coordinator dashboard.
+On the dashboard click **Run 5-student demo negotiate**; transcript polls `/api/transcript` every 1s.
+
 
 ## Tests
 
@@ -49,28 +62,12 @@ source .venv/bin/activate && pytest -v
 
 Phase 2 fixture slot: **78** (Wed 14:00). Phase 3: greedy → local search (seed 42, 200 iters) → negotiate gate.
 
-## Phase 4 — seed + simulation
+## Phase 4–5
 
 ```bash
-source .venv/bin/activate
-python seed_synthetic.py                  # → data/synthetic_students.json (seed 20260903)
-python run_simulation.py                  # full 300-student sim → SIMULATION_REPORT.md + data/simulation_stats.json
-python run_simulation.py --subset 24      # fast smoke subset
+python seed_synthetic.py && python run_simulation.py   # or --subset 24
+pytest -v tests/test_persistence.py                    # time-travel; local notifications only
 ```
-
-Bitmaps stay member-side; formation soft scoring never sees them.
-
-
-## Phase 5 — persistence tests
-
-```bash
-source .venv/bin/activate
-pytest -v tests/test_persistence.py
-# or full suite:
-pytest -v
-```
-
-Time-travel via explicit `now` / `FrozenClock` (no real sleep). Notifications are local SQLite only.
 ## Phase status
 
 - **1:** dual SQLite, slot grid, `/healthz`, structural tests
@@ -78,3 +75,4 @@ Time-travel via explicit `now` / `FrozenClock` (no real sleep). Notifications ar
 - **3:** greedy + local search + CONFIRM-only emit
 - **4:** synthetic 300×12 population + formation/negotiation simulation report
 - **5:** persistence — reminders, dormancy, drift renegotiation, exam-season second session, merge flags
+- **6:** plain HTML UI (intake / my groups / live transcript), `.ics`, demo negotiate endpoint

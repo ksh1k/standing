@@ -47,9 +47,15 @@ def test_coordinator_app_imports() -> None:
     assert coordinator_app.title == "Standing Coordinator"
     paths = {r.path for r in coordinator_app.routes if hasattr(r, "path")}
     assert "/healthz" in paths
+    assert "/api/transcript" in paths
+    assert "/api/groups" in paths
+    assert "/api/demo/negotiate" in paths
 
 
 def test_member_app_imports() -> None:
     assert member_app.title == "Standing Member Agent"
     paths = {r.path for r in member_app.routes if hasattr(r, "path")}
     assert "/healthz" in paths
+    assert "/api/intake" in paths
+    assert "/api/groups" in paths
+    assert "/api/notifications" in paths

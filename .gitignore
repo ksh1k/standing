@@ -5,3 +5,5 @@ __pycache__/
 *.db
 .DS_Store
 data/synthetic_students.json
+data/negotiation_log.jsonl
+data/simulation_stats.json
