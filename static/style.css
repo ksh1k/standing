@@ -88,6 +88,7 @@ header img[src*="logo"] {
   max-height: 32px !important;
   display: block;
   object-fit: contain;
+  aspect-ratio: 1 / 1;
 }
 a.brand {
   display: inline-flex;
@@ -496,4 +497,11 @@ code {
   main { padding-top: 1.25rem; }
   .hero h2 { font-size: 1.4rem; }
   .flow-step { grid-template-columns: 1fr; }
+}
+
+header h1 .logo-mark svg,
+header .brand img[src$=".svg"] {
+  width: 32px !important;
+  height: 32px !important;
+  display: block;
 }
