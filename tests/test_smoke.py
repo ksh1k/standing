@@ -41,6 +41,7 @@ def test_coordinator_migrations_apply(tmp_path: Path) -> None:
     assert "negotiation_rounds" in tables
     assert "session_aggregates" in tables
     assert "merge_flags" in tables
+    assert "course_pool" in tables
 
 
 def test_coordinator_app_imports() -> None:
@@ -50,6 +51,11 @@ def test_coordinator_app_imports() -> None:
     assert "/api/transcript" in paths
     assert "/api/groups" in paths
     assert "/api/demo/negotiate" in paths
+    assert "/api/auth/register" in paths
+    assert "/api/auth/login" in paths
+    assert "/api/pools/join" in paths
+    assert "/api/pools/match" in paths
+    assert "/api/pools" in paths
 
 
 def test_member_app_imports() -> None:

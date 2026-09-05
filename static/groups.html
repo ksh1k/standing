@@ -12,20 +12,20 @@
     <h1><span class="mark">S</span>Standing</h1>
     <nav>
       <a href="/">Home</a>
-      <a href="/intake.html">Intake</a>
+      <a href="/join.html">Join</a>
       <a class="active" href="/groups.html">My groups</a>
-      <a href="/dashboard.html">Dashboard</a>
+      <a href="/dashboard.html">Demo</a>
     </nav>
   </header>
   <main>
     <div class="hero">
       <h2>My groups</h2>
-      <p>Confirmed sessions show time and public place only — never other members' schedules.</p>
+      <p>Enter your student code to see confirmed sessions — time and public place only.</p>
     </div>
     <div class="card row">
       <div>
-        <label for="student_id">Student ID</label>
-        <input id="student_id" value="s0"/>
+        <label for="student_id">Student code</label>
+        <input id="student_id" placeholder="alex27" value=""/>
       </div>
       <button type="button" onclick="StandingUI.loadMyGroups()">Load my sessions</button>
     </div>

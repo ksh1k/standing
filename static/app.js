@@ -25,6 +25,30 @@ async function jpost(u, b) {
   return r.json();
 }
 
+const LS_CODE = "standing_student_code";
+const LS_NAME = "standing_display_name";
+
+function saveIdentity(code, name) {
+  if (code) {
+    localStorage.setItem(LS_CODE, code);
+    localStorage.setItem("student_id", code);
+  }
+  if (name) localStorage.setItem(LS_NAME, name);
+}
+function loadIdentity() {
+  return {
+    code: localStorage.getItem("student_id") || localStorage.getItem(LS_CODE) || "",
+    name: localStorage.getItem(LS_NAME) || "",
+  };
+}
+function fillIdentityFields() {
+  const id = loadIdentity();
+  const sid = qs("student_id");
+  const name = qs("display_name");
+  if (sid && id.code && !sid.value) sid.value = id.code;
+  if (name && id.name && !name.value) name.value = id.name;
+}
+
 /** Mon–Sun, 07:00–23:00, 30-min slots, 32/day → e.g. "Wed 14:00". */
 function slotLabel(index) {
   const i = Number(index);
@@ -71,12 +95,61 @@ function updatePollBtn() {
   btn.hidden = !!pollTimer;
 }
 
+async function submitAuth(ev) {
+  if (ev) ev.preventDefault();
+  const code = qs("student_id").value.trim();
+  const name = qs("display_name").value.trim();
+  const st = qs("auth_status");
+  try {
+    const res = await jpost(COORD + "/api/auth/register", {
+      student_id: code, student_code: code, display_name: name,
+    });
+    const sid = res.student_id || res.student_code || code;
+    const dn = (res.profile && res.profile.display_name) || res.display_name || name;
+    saveIdentity(sid, dn);
+    st.className = "status-ok";
+    st.textContent = (res.status === "exists" ? "Welcome back " : "Registered ") +
+      sid + ". Continue with profile below.";
+  } catch (e) {
+    st.className = "status-err";
+    st.textContent = String(e.message || e);
+  }
+}
+
+async function submitLogin() {
+  const code = qs("student_id").value.trim();
+  const st = qs("auth_status");
+  try {
+    const res = await jpost(COORD + "/api/auth/login", {
+      student_id: code, student_code: code,
+    });
+    const p = res.profile || res;
+    const sid = p.student_id || p.student_code || code;
+    saveIdentity(sid, p.display_name);
+    if (qs("display_name")) qs("display_name").value = p.display_name || "";
+    if (qs("year") && p.year) qs("year").value = p.year;
+    if (qs("group_size") && p.preferred_group_size)
+      qs("group_size").value = String(p.preferred_group_size);
+    if (qs("study_style") && p.study_style) qs("study_style").value = p.study_style;
+    if (qs("courses") && p.courses) qs("courses").value = (p.courses || []).join(", ");
+    if (qs("pool_course") && p.courses && p.courses[0])
+      qs("pool_course").value = p.courses[0];
+    st.className = "status-ok";
+    st.textContent = "Logged in as " + (p.display_name || sid) + " (" + sid + ").";
+  } catch (e) {
+    st.className = "status-err";
+    st.textContent = String(e.message || e);
+  }
+}
+
 async function submitIntake(ev) {
   ev.preventDefault();
   const zones = [...document.querySelectorAll("input[name=zone]:checked")].map(el => el.value);
+  const code = (qs("student_id") && qs("student_id").value.trim()) || loadIdentity().code;
+  const name = (qs("display_name") && qs("display_name").value.trim()) || loadIdentity().name || code;
   const body = {
-    student_id: qs("student_id").value.trim(),
-    display_name: qs("display_name").value.trim(),
+    student_id: code,
+    display_name: name,
     year: qs("year").value,
     courses: qs("courses").value.split(",").map(s => s.trim()).filter(Boolean),
     preferred_group_size: +qs("group_size").value,
@@ -90,22 +163,118 @@ async function submitIntake(ev) {
   };
   const st = qs("intake_status");
   try {
+    if (!code) throw new Error("Enter a student code first");
+    await jpost(COORD + "/api/auth/register", {
+      student_id: code, student_code: code, display_name: name,
+    });
     const res = await jpost(MEMBER + "/api/intake", body);
+    saveIdentity(res.student_id, name);
+    if (qs("pool_course") && body.courses[0])
+      qs("pool_course").value = body.courses[0];
+    const joins = [];
+    for (const c of body.courses) {
+      joins.push(await joinCourse(res.student_id, c));
+    }
+    const last = joins[joins.length - 1];
+    const waiting = last ? (last.waiting_count || last.pool_size || 0) : 0;
     st.className = "status-ok";
-    st.innerHTML = "Saved profile for <strong>" + esc(res.student_id) +
-      "</strong>. <a class=\"btn\" href=\"/groups.html\">Open My groups →</a>";
+    st.innerHTML = "Saved <strong>" + esc(res.student_id) +
+      "</strong> and joined pool(s). Waiting: " + esc(waiting) +
+      ". <a class=\"btn\" href=\"/groups.html\">My groups →</a>";
+    if (qs("pool_status") && last) {
+      qs("pool_status").className = "status-ok";
+      qs("pool_status").textContent = "Joined · waiting " + waiting +
+        (last.ready_to_match ? " · ready to match" : "");
+    }
+    await refreshPool();
   } catch (e) {
     st.className = "status-err";
     st.textContent = memberDownHint(e);
   }
 }
 
+async function joinCourse(studentId, courseCode) {
+  return jpost(COORD + "/api/pools/join", {
+    student_id: studentId,
+    student_code: studentId,
+    course_code: courseCode,
+  });
+}
+
+async function matchCourse(courseCode) {
+  return jpost(COORD + "/api/pools/match", { course_code: courseCode });
+}
+
+async function loadPool(courseCode) {
+  return jget(COORD + "/api/pools?course_code=" + encodeURIComponent(courseCode));
+}
+
+async function joinPool() {
+  const st = qs("pool_status");
+  const code = (qs("student_id") && qs("student_id").value.trim()) || loadIdentity().code;
+  const course = (qs("pool_course") && qs("pool_course").value.trim()) ||
+    ((qs("courses") && qs("courses").value.split(",")[0] || "").trim());
+  try {
+    if (!code || !course) throw new Error("Need student code and course");
+    saveIdentity(code);
+    const res = await joinCourse(code, course);
+    st.className = "status-ok";
+    st.textContent = res.status + " · pool size " + (res.pool_size || res.waiting_count) +
+      (res.ready_to_match ? " · ready to match (≥4)" : " · waiting for more students");
+    await refreshPool();
+  } catch (e) {
+    st.className = "status-err";
+    st.textContent = String(e.message || e);
+  }
+}
+
+async function matchPool() {
+  const st = qs("pool_status");
+  const course = (qs("pool_course") && qs("pool_course").value.trim()) ||
+    ((qs("courses") && qs("courses").value.split(",")[0] || "").trim());
+  try {
+    if (!course) throw new Error("Need a course code");
+    const res = await matchCourse(course);
+    st.className = res.status === "ok" ? "status-ok" : "status-err";
+    st.textContent = res.status + " · groups " + (res.groups || []).length +
+      " · pool was " + res.pool_size;
+    await refreshPool();
+  } catch (e) {
+    st.className = "status-err";
+    st.textContent = String(e.message || e);
+  }
+}
+
+async function refreshPool() {
+  const box = qs("pool_list");
+  const st = qs("pool_status");
+  if (!box) return;
+  const course = (qs("pool_course") && qs("pool_course").value.trim()) ||
+    ((qs("courses") && qs("courses").value.split(",")[0] || "").trim());
+  if (!course) {
+    box.innerHTML = "";
+    return;
+  }
+  try {
+    const data = await loadPool(course);
+    const codes = data.student_codes || (data.members || []).map(m => m.student_id || m);
+    box.innerHTML = "<p class=\"muted\">" + esc(data.course_code) + " wait pool: " +
+      (data.waiting_count != null ? data.waiting_count : data.pool_size) +
+      " waiting</p><ul>" +
+      codes.map(c => "<li><code>" + esc(c) + "</code></li>").join("") + "</ul>";
+  } catch (e) {
+    if (st) { st.className = "status-err"; st.textContent = String(e.message || e); }
+  }
+}
+
 async function loadMyGroups() {
   const sidEl = qs("student_id"), box = qs("groups_list");
   if (!box) return;
-  const sid = sidEl ? sidEl.value.trim() : "";
+  let sid = sidEl ? sidEl.value.trim() : "";
+  if (!sid) sid = loadIdentity().code;
+  if (sidEl && sid && !sidEl.value.trim()) sidEl.value = sid;
   if (!sid) {
-    box.innerHTML = "<div class=\"empty\"><strong>Enter a student ID</strong><p>Then load your sessions.</p></div>";
+    box.innerHTML = "<div class=\"empty\"><strong>Enter your student code</strong><p>Then load your sessions.</p></div>";
     return;
   }
   box.innerHTML = "<p class=\"muted\">Loading…</p>";
@@ -120,7 +289,7 @@ async function loadMyGroups() {
           "</ul></div>"
         ).join("")
       : "<div class=\"empty\"><strong>No sessions yet</strong>" +
-        "<p>Run the 5-student demo on the dashboard, then load again.</p>" +
+        "<p>Join a course pool and run match, or use the demo on the Demo page.</p>" +
         "<a class=\"btn secondary\" href=\"/dashboard.html\">Go to dashboard</a></div>";
   } catch (e) {
     box.innerHTML = "<p class=\"status-err\">" + esc(memberDownHint(e)) + "</p>";
@@ -235,8 +404,10 @@ async function runDemoNegotiate() {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
+  fillIdentityFields();
   const sid = qs("student_id");
-  if (qs("groups_list") && sid && sid.value.trim()) loadMyGroups();
+  if (qs("groups_list") && sid && (sid.value.trim() || loadIdentity().code)) loadMyGroups();
+  if (qs("pool_list") && qs("pool_course") && qs("pool_course").value.trim()) refreshPool();
   if (qs("transcript")) {
     ensureTranscriptPlaceholder();
     updatePollBtn();
@@ -244,5 +415,7 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 window.StandingUI = {
-  submitIntake, loadMyGroups, loadCoordGroups, startPolling, runDemoNegotiate, POLL_MS,
+  submitAuth, submitLogin, submitIntake, joinPool, matchPool, refreshPool,
+  joinCourse, matchCourse, loadPool,
+  loadMyGroups, loadCoordGroups, startPolling, runDemoNegotiate, POLL_MS,
 };

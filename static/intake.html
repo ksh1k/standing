@@ -3,90 +3,14 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Intake · Standing</title>
+  <title>Join · Standing</title>
+  <meta http-equiv="refresh" content="0; url=/join.html"/>
   <link rel="stylesheet" href="/style.css"/>
-  <script src="/app.js" defer></script>
+  <script>location.replace("/join.html");</script>
 </head>
 <body>
-  <header>
-    <h1><span class="mark">S</span>Standing</h1>
-    <nav>
-      <a href="/">Home</a>
-      <a class="active" href="/intake.html">Intake</a>
-      <a href="/groups.html">My groups</a>
-      <a href="/dashboard.html">Dashboard</a>
-    </nav>
-  </header>
-  <main>
-    <div class="hero">
-      <h2>Student intake</h2>
-      <p>Tell Standing who you are and how you like to study. Availability defaults to all-free on the member agent.</p>
-    </div>
-    <form class="card" onsubmit="StandingUI.submitIntake(event)">
-      <div class="row">
-        <div>
-          <label for="student_id">Student ID</label>
-          <input id="student_id" required placeholder="s0"/>
-        </div>
-        <div>
-          <label for="display_name">Display name</label>
-          <input id="display_name" required placeholder="Alex"/>
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label for="year">Year</label>
-          <select id="year">
-            <option>freshman</option>
-            <option>sophomore</option>
-            <option selected>junior</option>
-            <option>senior</option>
-            <option>grad</option>
-          </select>
-        </div>
-        <div>
-          <label for="group_size">Preferred group size</label>
-          <select id="group_size">
-            <option>4</option>
-            <option selected>5</option>
-            <option>6</option>
-          </select>
-        </div>
-        <div>
-          <label for="study_style">Study style</label>
-          <select id="study_style">
-            <option value="quiet_parallel">Quiet parallel</option>
-            <option value="discussion" selected>Discussion</option>
-            <option value="problem_drilling">Problem drilling</option>
-          </select>
-        </div>
-      </div>
-      <label for="courses">Courses</label>
-      <input id="courses" placeholder="CSCE315, MATH304"/>
-      <p class="field-hint">Comma-separated course codes</p>
-
-      <label>Preferred public zones</label>
-      <div class="zones">
-        <label><input type="checkbox" name="zone" value="main_library" checked/> Main library</label>
-        <label><input type="checkbox" name="zone" value="student_center"/> Student center</label>
-        <label><input type="checkbox" name="zone" value="engineering_quad"/> Engineering quad</label>
-        <label><input type="checkbox" name="zone" value="west_campus"/> West campus</label>
-        <label><input type="checkbox" name="zone" value="east_campus"/> East campus</label>
-      </div>
-
-      <label>Time-of-day preference (morning / afternoon / evening)</label>
-      <div class="row tod-row">
-        <input id="tod_m" type="number" step="0.1" value="1.0" aria-label="Morning weight"/>
-        <input id="tod_a" type="number" step="0.1" value="1.0" aria-label="Afternoon weight"/>
-        <input id="tod_e" type="number" step="0.1" value="1.0" aria-label="Evening weight"/>
-      </div>
-      <p class="field-hint">Higher weight = more preferred. No residence data collected.</p>
-
-      <div class="actions">
-        <button type="submit">Save profile</button>
-      </div>
-      <p id="intake_status" class="muted"></p>
-    </form>
+  <main class="hero" style="padding:2rem">
+    <p>Moved to <a href="/join.html">Join</a>.</p>
   </main>
 </body>
 </html>

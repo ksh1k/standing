@@ -100,3 +100,15 @@ Objective: `W_PLACE=1e6` × placed + Σ groups (`W_STYLE=1e3`·style + `W_YEAR=1
 - **Lifespan:** replaced deprecated FastAPI `@app.on_event("startup")` with `lifespan` context managers on coordinator + member apps (no behavior change).
 - **Clean-clone check:** fresh venv + `pip install -r requirements.txt` → pytest / seed / `/healthz` must work without manual intervention.
 - App versions bumped to `0.7.0`. No new dependencies.
+
+## Phase 8 — Multi-student product MVP
+
+- **Identity:** self-chosen `student_code` (opaque `student_id`) + `display_name`. **No passwords, no email.** Uniqueness: exact match after strip (case-sensitive). Duplicate register → HTTP 409.
+- **Auth APIs (coordinator):** `POST /api/auth/register`, `POST /api/auth/login` — login returns profile summary without availability bitmap.
+- **Privacy unchanged:** availability only in member `student_profile`; coordinator `students` / `course_pool` hold public fields only (no residence, no scrapes). Intake syncs public fields to coordinator.
+- **Wait pools:** `004_coordinator.sql` → `course_pool(course_code, student_id, status)`. Join requires profile with courses + availability and `course_code ∈ courses`.
+- **Match trigger (MVP):** **manual** via `POST /api/pools/match` or Join page “Run match” button (not auto-on-join). Requires ≥4 waiting students; runs Phase 3 formation+negotiation; persists confirmed groups; marks pool rows `matched`.
+- **Hosting:** Cloudflare quick tunnel / localhost unchanged — no paid cloud deploy. Same-origin `/member` mount remains.
+- **UI:** Join → My groups primary path; dashboard demo retained. `student_code` in `localStorage`.
+- **Demo path:** existing `POST /api/demo/negotiate` 5-student fixture still works alongside real pools.
+

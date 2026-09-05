@@ -1,4 +1,4 @@
-"""Coordinator FastAPI — transcript, groups, demo negotiate, static UI (localhost)."""
+"""Coordinator FastAPI — auth, pools, groups, demo negotiate, static UI."""
 
 from __future__ import annotations
 
@@ -14,10 +14,13 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from standing.calendar_ics import ics_from_slot, slot_label, slot_start_datetime
-from standing.constants import CampusZone
+from standing.constants import SLOTS_PER_WEEK, CampusZone, StudyStyle, YearLevel
+from standing.coordinator.pools import POOL_MATCH_MIN, run_course_match
 from standing.db import apply_coordinator_migrations, apply_member_migrations, connect
+from standing.models import normalize_course_code
 from standing.negotiation.coordinator_negotiate import NegotiateSession
 from standing.negotiation.log import NegotiationLog
 
@@ -48,7 +51,7 @@ async def _lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="Standing Coordinator", version="0.7.0", lifespan=_lifespan)
+app = FastAPI(title="Standing Coordinator", version="0.8.0", lifespan=_lifespan)
 
 
 @app.get("/healthz")
@@ -237,6 +240,244 @@ def api_demo_negotiate(background: bool = True) -> dict[str, Any]:
 def api_demo_status() -> dict[str, Any]:
     with _demo_lock:
         return {"running": _demo_status["running"], "last": _demo_status["last"]}
+
+
+
+# --- Product MVP: identity + course wait pools (manual match) -----------------
+
+class AuthRegisterRequest(BaseModel):
+    student_code: str = Field(..., min_length=1, max_length=64)
+    display_name: str = Field(..., min_length=1, max_length=120)
+
+
+class AuthLoginRequest(BaseModel):
+    student_code: str = Field(..., min_length=1, max_length=64)
+
+
+class PoolJoinRequest(BaseModel):
+    student_code: str = Field(..., min_length=1, max_length=64)
+    course_code: str = Field(..., min_length=1, max_length=32)
+
+
+class PoolMatchRequest(BaseModel):
+    course_code: str = Field(..., min_length=1, max_length=32)
+
+
+def _norm_code(raw: str) -> str:
+    return raw.strip()
+
+
+def _profile_summary(student_id: str) -> dict[str, Any]:
+    """Public profile summary — never raw availability bitmap."""
+    _ensure_member_db()
+    with connect(MEMBER_DB) as conn:
+        row = conn.execute(
+            "SELECT student_id, display_name, year, courses, preferred_group_size, "
+            "preferred_zones, study_style, availability FROM student_profile "
+            "WHERE student_id = ?",
+            (student_id,),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(404, "student not found")
+    courses = json.loads(row["courses"] or "[]")
+    return {
+        "student_code": row["student_id"],
+        "student_id": row["student_id"],
+        "display_name": row["display_name"],
+        "year": row["year"],
+        "courses": courses,
+        "preferred_group_size": row["preferred_group_size"],
+        "preferred_zones": json.loads(row["preferred_zones"] or "[]"),
+        "study_style": row["study_style"],
+        "has_availability": bool(row["availability"]),
+        "profile_complete": bool(courses) and bool(row["availability"]),
+    }
+
+
+@app.post("/api/auth/register")
+def api_auth_register(body: AuthRegisterRequest) -> dict[str, Any]:
+    """Create member stub + coordinator student row (no password). Unique student_code."""
+    code = _norm_code(body.student_code)
+    if not code:
+        raise HTTPException(400, "student_code required")
+    name = body.display_name.strip()
+    if not name:
+        raise HTTPException(400, "display_name required")
+    _ensure_coord_db()
+    _ensure_member_db()
+    with connect(MEMBER_DB) as conn:
+        if conn.execute(
+            "SELECT 1 FROM student_profile WHERE student_id = ?", (code,)
+        ).fetchone():
+            raise HTTPException(409, "student_code already registered")
+        conn.execute(
+            """
+            INSERT INTO student_profile (
+                student_id, display_name, year, courses, availability,
+                preferred_group_size, preferred_zones, study_style,
+                time_of_day_preference, updated_at
+            ) VALUES (?, ?, ?, '[]', ?, 5, ?, ?, ?, datetime('now'))
+            """,
+            (
+                code,
+                name,
+                YearLevel.JUNIOR.value,
+                "1" * SLOTS_PER_WEEK,
+                json.dumps([CampusZone.MAIN_LIBRARY.value]),
+                StudyStyle.DISCUSSION.value,
+                json.dumps({"morning": 1.0, "afternoon": 1.0, "evening": 1.0}),
+            ),
+        )
+        conn.commit()
+    with connect(COORD_DB) as conn:
+        if conn.execute("SELECT 1 FROM students WHERE student_id = ?", (code,)).fetchone():
+            raise HTTPException(409, "student_code already registered")
+        conn.execute(
+            """
+            INSERT INTO students (
+                student_id, year, courses, preferred_group_size,
+                preferred_zones, study_style
+            ) VALUES (?, ?, '[]', 5, ?, ?)
+            """,
+            (
+                code,
+                YearLevel.JUNIOR.value,
+                json.dumps([CampusZone.MAIN_LIBRARY.value]),
+                StudyStyle.DISCUSSION.value,
+            ),
+        )
+        conn.commit()
+    return {"status": "ok", "student_code": code, "display_name": name}
+
+
+@app.post("/api/auth/login")
+def api_auth_login(body: AuthLoginRequest) -> dict[str, Any]:
+    """Return profile summary if student_code exists (no password)."""
+    code = _norm_code(body.student_code)
+    if not code:
+        raise HTTPException(400, "student_code required")
+    return {"status": "ok", **_profile_summary(code)}
+
+
+@app.post("/api/pools/join")
+def api_pools_join(body: PoolJoinRequest) -> dict[str, Any]:
+    """Add student to a course wait pool if profile is complete enough."""
+    code = _norm_code(body.student_code)
+    course = normalize_course_code(body.course_code)
+    if not code or not course:
+        raise HTTPException(400, "student_code and course_code required")
+    _ensure_coord_db()
+    _ensure_member_db()
+    with connect(MEMBER_DB) as conn:
+        row = conn.execute(
+            "SELECT courses, availability FROM student_profile WHERE student_id = ?",
+            (code,),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(404, "register and complete intake first")
+    courses = json.loads(row["courses"] or "[]")
+    if not courses or not row["availability"]:
+        raise HTTPException(400, "profile incomplete: need courses and availability")
+    if course not in courses:
+        raise HTTPException(400, f"course {course} not in profile courses")
+    with connect(COORD_DB) as conn:
+        if conn.execute("SELECT 1 FROM students WHERE student_id = ?", (code,)).fetchone() is None:
+            raise HTTPException(404, "coordinator student missing — re-run intake")
+        existing = conn.execute(
+            "SELECT status FROM course_pool WHERE course_code = ? AND student_id = ?",
+            (course, code),
+        ).fetchone()
+        if existing and existing["status"] == "waiting":
+            size = conn.execute(
+                "SELECT COUNT(*) AS n FROM course_pool "
+                "WHERE course_code = ? AND status = 'waiting'",
+                (course,),
+            ).fetchone()["n"]
+            return {
+                "status": "already_waiting",
+                "student_code": code,
+                "course_code": course,
+                "pool_size": size,
+                "ready_to_match": size >= POOL_MATCH_MIN,
+            }
+        conn.execute(
+            """
+            INSERT INTO course_pool (course_code, student_id, status)
+            VALUES (?, ?, 'waiting')
+            ON CONFLICT(course_code, student_id) DO UPDATE SET
+                status = 'waiting',
+                joined_at = datetime('now')
+            """,
+            (course, code),
+        )
+        conn.commit()
+        size = conn.execute(
+            "SELECT COUNT(*) AS n FROM course_pool "
+            "WHERE course_code = ? AND status = 'waiting'",
+            (course,),
+        ).fetchone()["n"]
+    return {
+        "status": "joined",
+        "student_code": code,
+        "course_code": course,
+        "pool_size": size,
+        "ready_to_match": size >= POOL_MATCH_MIN,
+    }
+
+
+@app.get("/api/pools")
+def api_pools_list(course_code: str) -> dict[str, Any]:
+    """Pool size + waiting members (coordinator public fields only)."""
+    course = normalize_course_code(course_code)
+    _ensure_coord_db()
+    members: list[dict[str, Any]] = []
+    with connect(COORD_DB) as conn:
+        rows = conn.execute(
+            """
+            SELECT s.student_id, s.year, s.preferred_group_size, s.study_style, p.joined_at
+            FROM course_pool p
+            JOIN students s ON s.student_id = p.student_id
+            WHERE p.course_code = ? AND p.status = 'waiting'
+            ORDER BY p.joined_at
+            """,
+            (course,),
+        ).fetchall()
+        for r in rows:
+            members.append(
+                {
+                    "student_id": r["student_id"],
+                    "student_code": r["student_id"],
+                    "year": r["year"],
+                    "preferred_group_size": r["preferred_group_size"],
+                    "study_style": r["study_style"],
+                    "joined_at": r["joined_at"],
+                }
+            )
+    return {
+        "course_code": course,
+        "pool_size": len(members),
+        "waiting_count": len(members),
+        "min_match": POOL_MATCH_MIN,
+        "ready_to_match": len(members) >= POOL_MATCH_MIN,
+        "members": members,
+    }
+
+
+@app.post("/api/pools/match")
+def api_pools_match(body: PoolMatchRequest) -> dict[str, Any]:
+    """Manual MVP trigger: run formation+negotiation on a course wait pool."""
+    course = normalize_course_code(body.course_code)
+    _ensure_coord_db()
+    _ensure_member_db()
+    log_dir = DATA_DIR / "pool_match_logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    return run_course_match(
+        coord_db=COORD_DB,
+        member_db=MEMBER_DB,
+        course_code=course,
+        persist_confirmed=_persist_confirmed,
+        log_dir=log_dir,
+    )
 
 
 # Same-origin member API for public tunnel / single-URL demos

@@ -71,17 +71,21 @@ def member_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(mapp, "DATA_DIR", data)
     monkeypatch.setattr(mapp, "MEMBER_DB", data / "member.db")
+    monkeypatch.setattr(mapp, "COORD_DB", data / "coordinator.db")
     mapp._ensure_db()
     return mapp
 
 
 def test_static_files_exist() -> None:
     root = Path(__file__).resolve().parents[1] / "static"
-    for name in ("index.html", "intake.html", "groups.html", "dashboard.html", "app.js", "style.css"):
+    for name in ("index.html", "intake.html", "join.html", "groups.html", "dashboard.html", "app.js", "style.css"):
         assert (root / name).is_file(), name
 
 
-def test_api_groups_transcript_demo_ics(coord_env) -> None:
+def test_api_groups_transcript_demo_ics(coord_env, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Pin demo slot — live demo randomizes; tests need a reliable confirm.
+    from tests.fixtures.five_students import EXPECTED_UNANIMOUS_SLOT
+    monkeypatch.setattr("random.choice", lambda _pool: EXPECTED_UNANIMOUS_SLOT)
     assert coord_env.api_transcript()["total"] == 0
     assert coord_env.api_groups()["groups"] == []
     payload = coord_env.api_demo_negotiate(background=False)
@@ -102,11 +106,15 @@ def test_api_groups_transcript_demo_ics(coord_env) -> None:
     assert coord_env.healthz()["service"] == "coordinator"
 
 
-def test_api_intake_and_my_groups(member_env, coord_env) -> None:
+def test_api_intake_and_my_groups(member_env, coord_env, monkeypatch: pytest.MonkeyPatch) -> None:
     import standing.member.app as mapp
     from standing.member.app import IntakeRequest
+    from tests.fixtures.five_students import EXPECTED_UNANIMOUS_SLOT
 
-    mapp.MEMBER_DB, mapp.DATA_DIR = coord_env.MEMBER_DB, coord_env.DATA_DIR
+    monkeypatch.setattr("random.choice", lambda _pool: EXPECTED_UNANIMOUS_SLOT)
+    mapp.MEMBER_DB, mapp.DATA_DIR, mapp.COORD_DB = (
+        coord_env.MEMBER_DB, coord_env.DATA_DIR, coord_env.COORD_DB
+    )
     mapp._ensure_db()
     body = IntakeRequest(
         student_id="s0",

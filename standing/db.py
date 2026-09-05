@@ -18,6 +18,7 @@ COORDINATOR_MIGRATIONS: tuple[Path, ...] = (
     MIGRATIONS_DIR / "001_coordinator.sql",
     MIGRATIONS_DIR / "002_coordinator.sql",
     MIGRATIONS_DIR / "003_coordinator.sql",
+    MIGRATIONS_DIR / "004_coordinator.sql",
 )
 
 # Back-compat aliases

@@ -13,13 +13,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from standing.constants import SLOTS_PER_WEEK, CampusZone, StudyStyle, YearLevel
-from standing.db import apply_member_migrations, connect
+from standing.db import apply_coordinator_migrations, apply_member_migrations, connect
 from standing.models import normalize_course_code
 from standing.negotiation.member_eval import evaluate
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = Path(os.environ.get("STANDING_DATA_DIR", str(REPO_ROOT / "data")))
 MEMBER_DB = Path(os.environ.get("STANDING_MEMBER_DB", str(DATA_DIR / "member.db")))
+COORD_DB = Path(os.environ.get("STANDING_COORD_DB", str(DATA_DIR / "coordinator.db")))
 
 _LOCAL_AVAILABILITY: str | None = None
 
@@ -29,13 +30,55 @@ def _ensure_db() -> None:
     apply_member_migrations(MEMBER_DB)
 
 
+def _ensure_coord_db() -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    apply_coordinator_migrations(COORD_DB)
+
+
+def _sync_public_to_coordinator(
+    *,
+    student_id: str,
+    year: YearLevel,
+    courses: list[str],
+    preferred_group_size: int,
+    preferred_zones: list[CampusZone],
+    study_style: StudyStyle,
+) -> None:
+    """Upsert coordinator students row — public fields only (no availability)."""
+    _ensure_coord_db()
+    with connect(COORD_DB) as conn:
+        conn.execute(
+            """
+            INSERT INTO students (
+                student_id, year, courses, preferred_group_size,
+                preferred_zones, study_style
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(student_id) DO UPDATE SET
+                year=excluded.year,
+                courses=excluded.courses,
+                preferred_group_size=excluded.preferred_group_size,
+                preferred_zones=excluded.preferred_zones,
+                study_style=excluded.study_style
+            """,
+            (
+                student_id,
+                year.value,
+                json.dumps(courses),
+                preferred_group_size,
+                json.dumps([z.value for z in preferred_zones]),
+                study_style.value,
+            ),
+        )
+        conn.commit()
+
+
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
     _ensure_db()
     yield
 
 
-app = FastAPI(title="Standing Member Agent", version="0.7.0", lifespan=_lifespan)
+app = FastAPI(title="Standing Member Agent", version="0.8.0", lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://127.0.0.1:8000", "http://localhost:8000"],
@@ -116,6 +159,14 @@ def api_intake(body: IntakeRequest) -> dict[str, Any]:
             ),
         )
         conn.commit()
+    _sync_public_to_coordinator(
+        student_id=body.student_id,
+        year=body.year,
+        courses=courses,
+        preferred_group_size=body.preferred_group_size,
+        preferred_zones=body.preferred_zones,
+        study_style=body.study_style,
+    )
     return {"status": "ok", "student_id": body.student_id}
 
 

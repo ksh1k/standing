@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Join · Standing</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1><span class="mark">S</span>Standing</h1>
+    <nav>
+      <a href="/">Home</a>
+      <a class="active" href="/join.html">Join</a>
+      <a href="/groups.html">My groups</a>
+      <a href="/dashboard.html">Demo</a>
+    </nav>
+  </header>
+  <main>
+    <div class="hero">
+      <h2>Join Standing</h2>
+      <p>Pick a student code (no password), set preferences, then join a course wait pool. Match runs when you hit the button (MVP).</p>
+    </div>
+
+    <form class="card join-auth" onsubmit="StandingUI.submitAuth(event)">
+      <h3>1. Sign up / log in</h3>
+      <div class="row">
+        <div>
+          <label for="student_id">Student code</label>
+          <input id="student_id" required placeholder="alex27" autocomplete="username"/>
+          <p class="field-hint">Self-chosen, unique. Stored in this browser.</p>
+        </div>
+        <div>
+          <label for="display_name">Display name</label>
+          <input id="display_name" required placeholder="Alex" autocomplete="nickname"/>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="submit" class="primary-cta">Register</button>
+        <button type="button" class="secondary" onclick="StandingUI.submitLogin()">Log in</button>
+      </div>
+      <p id="auth_status" class="muted"></p>
+    </form>
+
+    <form class="card join-intake" onsubmit="StandingUI.submitIntake(event)">
+      <h3>2. Profile &amp; courses</h3>
+      <div class="row">
+        <div>
+          <label for="year">Year</label>
+          <select id="year">
+            <option>freshman</option>
+            <option>sophomore</option>
+            <option selected>junior</option>
+            <option>senior</option>
+            <option>grad</option>
+          </select>
+        </div>
+        <div>
+          <label for="group_size">Preferred group size</label>
+          <select id="group_size">
+            <option>4</option>
+            <option selected>5</option>
+            <option>6</option>
+          </select>
+        </div>
+        <div>
+          <label for="study_style">Study style</label>
+          <select id="study_style">
+            <option value="quiet_parallel">Quiet parallel</option>
+            <option value="discussion" selected>Discussion</option>
+            <option value="problem_drilling">Problem drilling</option>
+          </select>
+        </div>
+      </div>
+      <label for="courses">Courses to meet for</label>
+      <input id="courses" placeholder="CSCE315, MATH304" required/>
+      <p class="field-hint">Comma-separated. Availability stays on the member agent (defaults to all-free).</p>
+
+      <label>Preferred public zones</label>
+      <div class="zones">
+        <label><input type="checkbox" name="zone" value="main_library" checked/> Main library</label>
+        <label><input type="checkbox" name="zone" value="student_center"/> Student center</label>
+        <label><input type="checkbox" name="zone" value="engineering_quad"/> Engineering quad</label>
+        <label><input type="checkbox" name="zone" value="west_campus"/> West campus</label>
+        <label><input type="checkbox" name="zone" value="east_campus"/> East campus</label>
+      </div>
+
+      <label>Time-of-day preference (morning / afternoon / evening)</label>
+      <div class="row tod-row">
+        <input id="tod_m" type="number" step="0.1" value="1.0" aria-label="Morning weight"/>
+        <input id="tod_a" type="number" step="0.1" value="1.0" aria-label="Afternoon weight"/>
+        <input id="tod_e" type="number" step="0.1" value="1.0" aria-label="Evening weight"/>
+      </div>
+      <p class="field-hint">Higher weight = more preferred. No residence data collected.</p>
+
+      <div class="actions">
+        <button type="submit">Save profile</button>
+      </div>
+      <p id="intake_status" class="muted"></p>
+    </form>
+
+    <div class="card join-pool">
+      <h3>3. Course pool &amp; match</h3>
+      <div class="row">
+        <div>
+          <label for="pool_course">Course code</label>
+          <input id="pool_course" placeholder="CSCE315"/>
+        </div>
+        <button type="button" class="primary-cta" onclick="StandingUI.joinPool()">Join wait pool</button>
+        <button type="button" class="secondary" onclick="StandingUI.matchPool()">Run match</button>
+        <button type="button" class="secondary" onclick="StandingUI.refreshPool()">Refresh pool</button>
+      </div>
+      <p id="pool_status" class="muted"></p>
+      <div id="pool_list"></div>
+    </div>
+  </main>
+</body>
+</html>
