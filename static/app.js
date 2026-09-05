@@ -77,7 +77,7 @@ function memberDownHint(err) {
   const msg = String(err && err.message || err || "");
   if (/Failed to fetch|NetworkError|load failed|Network request failed|ECONNREFUSED/i.test(msg) ||
       (err && err.name === "TypeError")) {
-    return "Member API must be on :8001. Start the member server and try again.";
+    return "Could not reach Standing member APIs. Try again in a moment.";
   }
   return msg;
 }
@@ -289,8 +289,8 @@ async function loadMyGroups() {
           "</ul></div>"
         ).join("")
       : "<div class=\"empty\"><strong>No sessions yet</strong>" +
-        "<p>Join a course pool and run match, or use the demo on the Demo page.</p>" +
-        "<a class=\"btn secondary\" href=\"/dashboard.html\">Go to dashboard</a></div>";
+        "<p>Join a course on the Join page, wait for classmates (≥4), then Run match.</p>" +
+        "<a class=\"btn secondary\" href=\"/join.html\">Go to Join</a></div>";
   } catch (e) {
     box.innerHTML = "<p class=\"status-err\">" + esc(memberDownHint(e)) + "</p>";
   }
