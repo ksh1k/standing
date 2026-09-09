@@ -18,7 +18,6 @@ Open [http://127.0.0.1:8000/join.html](http://127.0.0.1:8000/join.html) after yo
 3. Availability bitmaps never leave the member store. The coordinator sees accept/reject only.
 4. Attendance is private to that student.
 5. Groups are 4–6 people, public places only. No 1:1 first meetings.
-6. Do not post externally or ship a public URL without an explicit ask.
 
 ## Stack
 
