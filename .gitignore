@@ -22,3 +22,6 @@ cf.out
 lt.out
 static/demo/
 static/app.wallclock.js
+
+# local screen recorder
+scripts/
