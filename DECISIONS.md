@@ -90,7 +90,7 @@ Objective: `W_PLACE=1e6` × placed + Σ groups (`W_STYLE=1e3`·style + `W_YEAR=1
 
 - **UI:** `static/` plain HTML+JS; coordinator `StaticFiles`. Poll `/api/transcript?after=N` every **1000 ms**.
 - **Live transcript:** `POST /api/demo/negotiate` runs five-student fixture; appends PROPOSE/RESPOND/CONFIRM to `data/negotiation_log.jsonl` (no bitmaps; no `student_id` on RESPOND).
-- **ICS:** SUMMARY, LOCATION (public zone), DTSTART/DTEND (90 min), optional UID. Slot→time: week Monday `2026-09-07` as UTC demo (`calendar_ics.py`).
+- **ICS:** SUMMARY, LOCATION (public zone), DTSTART/DTEND (90 min), optional UID. Slot→time: week Monday `2026-09-07` as UTC wall-clock (UI formatWhen uses getUTC*) (`calendar_ics.py`).
 - **Intake / my groups:** member `/api/intake`, `/api/groups?student_id=` via `local_sessions` (time+place only). Bind `127.0.0.1`; member CORS for `:8000`.
 
 ## Phase 7 — Demo + runbook (FINAL)
@@ -111,4 +111,5 @@ Objective: `W_PLACE=1e6` × placed + Σ groups (`W_STYLE=1e3`·style + `W_YEAR=1
 - **Hosting:** Cloudflare quick tunnel / localhost unchanged — no paid cloud deploy. Same-origin `/member` mount remains.
 - **UI:** Join → My groups primary path; dashboard demo retained. `student_code` in `localStorage`.
 - **Demo path:** existing `POST /api/demo/negotiate` 5-student fixture still works alongside real pools.
+
 

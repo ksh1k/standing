@@ -4,6 +4,21 @@ __pycache__/
 .pytest_cache/
 *.db
 .DS_Store
+
+# local runtime
 data/synthetic_students.json
 data/negotiation_log.jsonl
 data/simulation_stats.json
+data/demo_video/
+data/demo_draft/
+data/pool_match_logs/
+data/coordinator.db
+data/member.db
+
+# tunnel / scratch binaries (do not publish)
+bin-cloudflared
+cfproxy
+cf.out
+lt.out
+static/demo/
+static/app.wallclock.js

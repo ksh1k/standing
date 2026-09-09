@@ -54,6 +54,15 @@ async def _lifespan(_app: FastAPI):
 app = FastAPI(title="Standing Coordinator", version="0.8.0", lifespan=_lifespan)
 
 
+@app.middleware("http")
+async def no_cache_static(request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.endswith((".js", ".html", ".css")) or path.endswith(".html"):
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
+
+
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
     return {"status": "ok", "service": "coordinator"}

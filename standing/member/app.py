@@ -1,6 +1,7 @@
 """Member agent FastAPI — healthz, evaluate, intake, my-groups, notifications."""
 
 from __future__ import annotations
+import re
 
 import json
 import os
@@ -192,6 +193,28 @@ def api_get_intake(student_id: str) -> dict[str, Any]:
     }
 
 
+
+_WEEKDAY = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def campus_when_label(iso: str | None) -> str:
+    """Format campus wall-clock from ISO digits — never shift by browser/server TZ."""
+    if not iso:
+        return "—"
+    m = re.match(r"(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})", str(iso))
+    if not m:
+        return str(iso)
+    y, mo, day, hh, mm = map(int, m.groups())
+    # weekday via calendar (stdlib) to avoid TZ
+    import datetime as _dt
+    wd = _dt.date(y, mo, day).weekday()  # Mon=0
+    # convert to Sun=0
+    wd = (wd + 1) % 7
+    h = hh % 12 or 12
+    ap = "PM" if hh >= 12 else "AM"
+    return f"{_WEEKDAY[wd]} {_MONTHS[mo - 1]} {day}, {h}:{mm:02d} {ap}"
+
 @app.get("/api/groups")
 def api_my_groups(student_id: str) -> dict[str, Any]:
     """Sessions for this student: time + public place only."""
@@ -213,11 +236,14 @@ def api_my_groups(student_id: str) -> dict[str, Any]:
     for r in rows:
         gid = r["group_id"] or r["session_id"]
         groups.setdefault(gid, {"group_id": gid, "sessions": []})
+        loc = r["location"] or ""
         groups[gid]["sessions"].append(
             {
                 "session_id": r["session_id"],
                 "scheduled_datetime": r["scheduled_datetime"],
-                "location": r["location"],
+                "location": loc,
+                "when_label": campus_when_label(r["scheduled_datetime"]),
+                "place_label": str(loc).replace("_", " "),
             }
         )
     return {"student_id": student_id, "profile_exists": prof is not None, "groups": list(groups.values())}

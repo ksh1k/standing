@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta http-equiv="Cache-Control" content="no-store"/>
   <title>My groups · Standing</title>
   <link rel="icon" type="image/png" href="/favicon.png?v=logo4"/>
   <link rel="stylesheet" href="/style.css?v=logo4"/>
-  <script src="/app.js" defer></script>
 </head>
 <body>
   <header>
@@ -28,9 +28,72 @@
         <label for="student_id">Student code</label>
         <input id="student_id" placeholder="alex27" value=""/>
       </div>
-      <button type="button" onclick="StandingUI.loadMyGroups()">Load my sessions</button>
+      <button type="button" id="load_btn">Load my sessions</button>
     </div>
     <div id="groups_list"></div>
   </main>
+  <script>
+  (function () {
+    function esc(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+    function identityCode() {
+      return localStorage.getItem("student_id")
+        || localStorage.getItem("standing_student_code")
+        || "";
+    }
+    // Campus wall-clock from ISO digits only (never browser TZ).
+    function wallWhen(iso) {
+      if (!iso) return "—";
+      const m = String(iso).match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+      if (!m) return esc(iso);
+      const y = +m[1], mo = +m[2], day = +m[3], hh = +m[4], mm = +m[5];
+      const wd = new Date(Date.UTC(y, mo - 1, day, 12)).getUTCDay();
+      const WEEKDAY = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+      const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      let h = hh % 12; if (h === 0) h = 12;
+      const ap = hh >= 12 ? "PM" : "AM";
+      return WEEKDAY[wd] + " " + MONTHS[mo - 1] + " " + day + ", " + h + ":" + String(mm).padStart(2, "0") + " " + ap;
+    }
+    async function loadMyGroups() {
+      const box = document.getElementById("groups_list");
+      const sidEl = document.getElementById("student_id");
+      let sid = (sidEl && sidEl.value.trim()) || identityCode();
+      if (sidEl && sid && !sidEl.value.trim()) sidEl.value = sid;
+      if (!sid) {
+        box.innerHTML = "<div class=\"empty\"><strong>Enter your student code</strong><p>Then load your sessions.</p></div>";
+        return;
+      }
+      box.innerHTML = "<p class=\"muted\">Loading…</p>";
+      try {
+        const r = await fetch("/member/api/groups?student_id=" + encodeURIComponent(sid), { cache: "no-store" });
+        const data = await r.json();
+        if (!data.groups || !data.groups.length) {
+          box.innerHTML = "<div class=\"empty\"><strong>No sessions yet</strong>"
+            + "<p>Join a course on the Join page, wait for classmates (≥4), then Run match.</p>"
+            + "<a class=\"btn secondary\" href=\"/join.html\">Go to Join</a></div>";
+          return;
+        }
+        box.innerHTML = data.groups.map(function (g) {
+          const lis = (g.sessions || []).map(function (s) {
+            const when = s.when_label || wallWhen(s.scheduled_datetime);
+            const place = s.place_label || String(s.location || "").replaceAll("_", " ");
+            return "<li>" + esc(when) + " · " + esc(place) + "</li>";
+          }).join("");
+          return "<div class=\"card group-card\"><strong>" + esc(g.group_id) + "</strong><ul>" + lis + "</ul></div>";
+        }).join("");
+      } catch (e) {
+        box.innerHTML = "<p class=\"status-err\">" + esc(e.message || e) + "</p>";
+      }
+    }
+    window.StandingUI = { loadMyGroups: loadMyGroups };
+    document.getElementById("load_btn").addEventListener("click", loadMyGroups);
+    const sidEl = document.getElementById("student_id");
+    if (sidEl && !sidEl.value) sidEl.value = identityCode();
+    if (sidEl && sidEl.value.trim()) loadMyGroups();
+  })();
+  </script>
 </body>
 </html>

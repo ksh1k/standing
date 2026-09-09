@@ -15,6 +15,8 @@ from standing.constants import (
 )
 
 DEFAULT_WEEK_MONDAY: date = date(2026, 9, 7)  # Monday
+# Campus grid hours stored as UTC wall-clock (14:00Z means 14:00 campus).
+# UI formatWhen uses getUTC* so browser TZ (e.g. PT on the box) does not shift.
 
 
 def slot_start_datetime(start_slot: int, week_monday: date | None = None) -> datetime:

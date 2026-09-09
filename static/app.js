@@ -60,16 +60,19 @@ function slotLabel(index) {
   return DAYS[day] + " " + String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
 }
 
-/** ISO → "Wed Sep 9, 2:00 PM" (browser-local). */
+/** ISO campus wall-clock → "Wed Sep 9, 2:00 PM" (ignore browser TZ). */
 function formatWhen(iso) {
   if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return esc(iso);
-  let h = d.getHours(), m = d.getMinutes(), ap = h >= 12 ? "PM" : "AM";
+  const m = String(iso).match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (!m) return esc(iso);
+  const y = +m[1], mo = +m[2], day = +m[3], hh0 = +m[4], mm = +m[5];
+  // weekday from UTC noon of that Y-M-D (stable, no TZ shift of the clock digits)
+  const wd = new Date(Date.UTC(y, mo - 1, day, 12, 0, 0)).getUTCDay();
+  let h = hh0, ap = h >= 12 ? "PM" : "AM";
   h = h % 12; if (h === 0) h = 12;
   return esc(
-    WEEKDAY[d.getDay()] + " " + MONTHS[d.getMonth()] + " " + d.getDate() +
-    ", " + h + ":" + String(m).padStart(2, "0") + " " + ap
+    WEEKDAY[wd] + " " + MONTHS[mo - 1] + " " + day +
+    ", " + h + ":" + String(mm).padStart(2, "0") + " " + ap
   );
 }
 
@@ -284,7 +287,7 @@ async function loadMyGroups() {
       ? data.groups.map(g =>
           "<div class=\"card group-card\"><strong>" + esc(g.group_id) + "</strong><ul>" +
           g.sessions.map(s =>
-            "<li>" + formatWhen(s.scheduled_datetime) + " @ " + esc(s.location) + "</li>"
+            "<li>" + esc(s.when_label || formatWhen(s.scheduled_datetime)) + " · " + esc(s.place_label || String(s.location||"").replaceAll("_"," ")) + "</li>"
           ).join("") +
           "</ul></div>"
         ).join("")
