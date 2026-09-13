@@ -36,17 +36,35 @@ data/              local SQLite and logs (gitignored)
 
 ## Setup
 
+Requires Python 3.11 or newer. Check with `python -V` before you start — an
+older interpreter will create the venv without complaint and fail later.
+
+**macOS / Linux**
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Run
+**Windows (PowerShell)**
 
-```bash
-python -m standing.demo_server
+```powershell
+py -3.13 -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
+
+If PowerShell refuses to run the activation script, allow local scripts once
+for your account, then retry:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Confirm the venv is active before installing — your prompt should be prefixed
+with `(.venv)`, and `python -c "import sys; print(sys.executable)"` should
+print a path inside `.venv`.
 
 Then open **http://127.0.0.1:8000/**.
 
