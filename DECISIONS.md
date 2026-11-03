@@ -109,6 +109,13 @@ Objective: `W_PLACE=1e6` × placed + Σ groups (`W_STYLE=1e3`·style + `W_YEAR=1
 - **Wait pools:** `004_coordinator.sql` → `course_pool(course_code, student_id, status)`. Join requires profile with courses + availability and `course_code ∈ courses`.
 - **Match trigger (MVP):** **manual** via `POST /api/pools/match` or Join page “Run match” button (not auto-on-join). Requires ≥4 waiting students; runs Phase 3 formation+negotiation; persists confirmed groups; marks pool rows `matched`.
 - **Hosting:** Cloudflare quick tunnel / localhost unchanged — no paid cloud deploy. Same-origin `/member` mount remains.
+
+## Hosted demo (Render free tier)
+
+- **Why:** a shareable link without asking people to clone and run Python. Still no paid deploy.
+- **Shape:** `render.yaml` runs `standing.demo_server:app` with uvicorn on `0.0.0.0:$PORT`. One process, same-origin `/member`, `GET /healthz` as the health check.
+- **Constraint 6:** local runs still bind `127.0.0.1` (`demo_server.main` unchanged). Only the Render copy listens publicly, by its start command.
+- **Data:** SQLite on Render's ephemeral disk; resets on redeploy/restart. Demo only, synthetic data only.
 - **UI:** Join → My groups primary path; dashboard demo retained. `student_code` in `localStorage`.
 - **Demo path:** existing `POST /api/demo/negotiate` 5-student fixture still works alongside real pools.
 

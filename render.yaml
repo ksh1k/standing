@@ -1,0 +1,15 @@
+# Render Blueprint: one free web service runs the coordinator, static UI and /member API.
+# Local runs still bind 127.0.0.1 (python -m standing.demo_server); only this hosted copy listens publicly.
+services:
+  - type: web
+    name: standing
+    runtime: python
+    plan: free
+    branch: main
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn standing.demo_server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7

@@ -11,6 +11,17 @@ Campus study groups that pick a shared weekly meetup **without anyone sharing th
 
 Open [http://127.0.0.1:8000/join.html](http://127.0.0.1:8000/join.html) after you start the server.
 
+## Hosted demo
+
+`render.yaml` deploys Standing as one free Render web service: coordinator, static UI and `/member` on a single public URL. To set it up, sign in to [Render](https://render.com) with GitHub, choose **New → Blueprint**, pick this repo and apply. Pushes to `main` redeploy automatically.
+
+The free plan has two limits worth knowing before you share the link:
+
+- **Sleeps when idle.** After about 15 minutes with no visitors the service stops; the next visit takes up to a minute to wake it.
+- **Data resets.** SQLite lives on the service's temporary disk, so joins, pools and groups are wiped on every redeploy or restart. Treat the hosted copy as a demo, not a place to keep real sign-ups.
+
+Use synthetic names and codes on the hosted demo. It has no passwords, so anyone who knows a student code can sign in as that student.
+
 ## Hard constraints
 
 1. No real university systems, portals, or university credentials.
