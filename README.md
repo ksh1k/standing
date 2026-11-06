@@ -2,6 +2,8 @@
 
 Campus study groups that pick a shared weekly meetup **without anyone sharing their full calendar**. Students see only place and time. Availability stays on the member side.
 
+**Live demo:** [standing-cdgd.onrender.com](https://standing-cdgd.onrender.com/join.html) — the first visit can take up to a minute while the free server wakes up. Demo data resets often; use made-up names and codes.
+
 ## Product
 
 1. **Join** — display name + a self-chosen student code (no university login).
@@ -13,7 +15,7 @@ Open [http://127.0.0.1:8000/join.html](http://127.0.0.1:8000/join.html) after yo
 
 ## Hosted demo
 
-`render.yaml` deploys Standing as one free Render web service: coordinator, static UI and `/member` on a single public URL. To set it up, sign in to [Render](https://render.com) with GitHub, choose **New → Blueprint**, pick this repo and apply. Pushes to `main` redeploy automatically.
+`render.yaml` deploys Standing as one free Render web service: coordinator, static UI and `/member` on a single public URL. It's live at [https://standing-cdgd.onrender.com](https://standing-cdgd.onrender.com). To deploy your own copy, sign in to [Render](https://render.com) with GitHub, choose **New → Blueprint**, pick this repo and apply. Pushes to `main` redeploy automatically.
 
 The free plan has two limits worth knowing before you share the link:
 
